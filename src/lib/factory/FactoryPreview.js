@@ -26,7 +26,7 @@ import {
   surfaceDirection,
 } from './planetFrames.js';
 import { CameraRig, CAMERA_FOV_DEG } from './cameraRig.js';
-import { isAssembler, isBelt, isInserter, isLab, LOGISTIC_ROLE_COLORS } from '../blueprint/factory/factoryItems.js';
+import { isAssembler, isBelt, isInserter, isLab } from '../blueprint/factory/factoryItems.js';
 import { layoutBlueprint } from './blueprintLayout.js';
 import { createStarfield, disposeStarfield, STARFIELD_BG_COLOR } from '../preview/starfield.js';
 import {
@@ -35,6 +35,13 @@ import {
   INSERTER_ARROW, INSERTER_MODEL, INSERTER_PARTS,
 } from './buildingModels.js';
 import { itemIconUrl } from '../markup/itemIcons';
+import { COLOR_PALETTE_256 } from '../markup/colorPalette.js';
+import hologramMaskR from '../../assets/factory/hologram/lighthouse-eff-r-R.png';
+import hologramMaskG from '../../assets/factory/hologram/lighthouse-eff-r-G.png';
+import hologramMaskB from '../../assets/factory/hologram/lighthouse-eff-r-B.png';
+
+/** 物流供需三档的配色（仓储灰 / 供应青 / 需求橙） */
+const LOGISTIC_ROLE_COLORS = { 0: '#9fb0d0', 1: '#5fd3f2', 2: '#ef9a5a' };
 
 /** 行星球体的经纬分段数（512×256 时面片中心凹陷 1 − cos(π/分段数) ≈ 7.5e-5） */
 const PLANET_SPHERE_SEGMENTS = { width: 512, height: 256 };
@@ -53,6 +60,23 @@ const GRID_LINE_MAJOR_OPACITY = 0.3;
 const GRID_LINE_TROPIC_OPACITY = 0.25;
 
 const PLANET_COLOR = 0x39404b;
+
+/** 全息信标（2401）投影默认值（字段见 markerCodec） */
+const HOLOGRAM_DEFAULT_HEIGHT = 12.5;   // 游戏单位
+const HOLOGRAM_DEFAULT_RADIUS = 1.5;
+
+/** 三个圆盘：R/G/B 各一层，大盘居中、小盘上下；lift 相对 radius（0.169 来自游戏网格比例） */
+const HOLOGRAM_DISC_GAP = 0.169;
+const HOLOGRAM_DISCS = [
+  { size: 0.578, lift: -HOLOGRAM_DISC_GAP, mask: 'R' }, // 小盘（下）
+  { size: 1, lift: 0, mask: 'G' },                      // 大盘（中）
+  { size: 0.578, lift: HOLOGRAM_DISC_GAP, mask: 'B' },  // 小盘（上）
+];
+
+/** 光柱：信标顶部 → 圆盘中心 */
+const HOLOGRAM_PILLAR_START = 3;         // 模型 664 顶面
+const HOLOGRAM_PILLAR_RADIUS = 0.005;    // 相对 radius
+const HOLOGRAM_PILLAR_OPACITY = 0.35;
 
 /** 本工具的星空种子 */
 const STARFIELD_SEED = 20260307;
@@ -570,6 +594,19 @@ function unknownCubeGeometry() {
   return unknownCubeGeometryCache;
 }
 
+/** 全息信标颜色索引（0-255）→ THREE.Color；0 号色 alpha=0，返回 null */
+function hologramColor(index) {
+  if (Number(index) === 0) return null;
+  const hex = COLOR_PALETTE_256[Number(index)];
+  return new THREE.Color(hex?.startsWith('#') ? hex : '#ffffff');
+}
+
+/** 参数取正数；缺省 / 0 / 非法值用默认值 */
+function positiveOr(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 /**
  * 可独立开关的显示层（预览下方状态行里的一排按钮）
  *   建筑 / 传送带 / 分拣器按建筑归属；图标 = 建筑头顶的图标（物流塔是它的「塔内」物品栏卡片）
@@ -591,6 +628,8 @@ class FactoryPreview {
     this._gridLinesMajor = null;
     this._gridLinesTropic = null;
     this._markers = null;
+    /** 全息信标顶部圆盘遮罩（R/G/B 三张，整个预览共用） */
+    this._hologramMaps = {};
     /** 视角「归位」的目标: 打开蓝图后是蓝图中心，没蓝图时是赤道（交给 rig，见 _applyHomeView） */
     this._homeView = { ...DEFAULT_HOME_VIEW };
     /** 目标纬度（度）: 多区域蓝图优先吸附到离它最近的位置；null = 自动（北半球、低纬度） */
@@ -799,7 +838,7 @@ class FactoryPreview {
     }
     this._allBuildings = layout.buildings;       // 下标 = 建筑序号：连线 / 分拣器 / 选中 / 高亮都取它（见 _addBeltLines 等）
 
-    this._addBuildings(split.buildings);        // 建筑层: 碰撞箱长方体；认不出的画棋盘方块
+    this._addBuildings(split.buildings);        // 建筑层: 碰撞箱长方体、信标投影；认不出的画棋盘方块
     this._addBelts(split.belts);                // 带子本体（八棱柱），与连接板条同层
     this._addBeltLines(split.belts);            // 连接线
     this._addInserters(split.inserters);
@@ -829,74 +868,147 @@ class FactoryPreview {
   }
 
   /**
-   * 摆出**建筑层**的模型: 按真实尺寸和位置画碰撞箱长方体（数据见 buildingModels.js）
+   * 摆出**建筑层**的模型: 碰撞箱长方体 + 信标投影；
    *
    * @param {object[]} buildings 建筑层的建筑（已滤掉带子 / 分拣器）
    */
   _addBuildings(buildings) {
     if (!buildings.length) return;
 
-    // 按「箱体形状 + 颜色」分组，同组合并成一个 InstancedMesh（同家族碰撞箱一样，靠颜色区分建筑）；
+    // 同形同色的一组合成一个 InstancedMesh
     const groups = new Map();
     const unknown = [];  // 未知模型
+    const holograms = []; // 信标投影: { building, color }；color=null 表示 0 号色
     for (const building of buildings) {
-      const { color, colliders } = buildingModel(building.modelIndex);
-      if (!colliders) {
+      const model = buildingModel(building.modelIndex);
+      let color = model.color;
+      let projectionColor = null;
+      if (Number(building.itemId) === 2401) {
+        projectionColor = hologramColor(Number(building.parameters?.color ?? 0));
+        // 0 号色：楼体用默认色，投影透明
+        if (projectionColor) color = projectionColor.getHex();
+        holograms.push({ building, color: projectionColor });
+      }
+      if (!model.colliders) {
         unknown.push(building);
         continue;
       }
-      for (const box of colliders) {
+      for (const box of model.colliders) {
         const key = `${color}|${box.center.join(',')}|${box.ext.join(',')}`;
         if (!groups.has(key)) groups.set(key, { box, color, items: [] });
         groups.get(key).items.push(building);
       }
     }
 
-    if (!groups.size && !unknown.length) return;   // 这一堆里既没箱子也没认不出的: 什么都不建
+    if (!groups.size && !unknown.length && !holograms.length) return;
 
     const materialOf = new Map();
     const group = this._layerGroup('buildings');
 
-    const pose = { position: new THREE.Vector3(), quaternion: new THREE.Quaternion() };
-    for (const { box, color, items } of groups.values()) {
-      // 碰撞箱单位是游戏世界单位 → 场景单位
-      const width = box.ext[0] * 2 * GAME_UNIT_SCENE;
-      const height = box.ext[1] * 2 * GAME_UNIT_SCENE;
-      const depth = box.ext[2] * 2 * GAME_UNIT_SCENE;
+    for (const entry of groups.values()) this._addBuilding(entry, group, materialOf);
+    for (const entry of holograms) this._addHologram(entry, group);
 
-      // 同色共用一份材质，清理时按 Set 去重释放
-      if (!materialOf.has(color)) {
-        materialOf.set(color, new THREE.MeshStandardMaterial({
-          color,
-          roughness: 0.7,
-          metalness: 0,
-        }));
-      }
-      const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(width, height, depth), materialOf.get(color), items.length);
-      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
-      // 记下这组的信息（自检 / 调试用）
-      mesh.userData.itemIds = [...new Set(items.map((b) => b.itemId))];
-      mesh.userData.box = box;
-      mesh.userData.color = color;
-      /**
-       * 拾取用: 每个实例对应哪栋建筑 —— 射线打中的 instanceId 就是这里的下标。
-       * 一栋建筑可能出现在多个网格里（多块碰撞箱、按颜色分了组），所以每份网格各记一份。
-       */
-      mesh.userData.pickBuildings = items;
-      const dummy = new THREE.Object3D();
-      items.forEach((building, i) => {
-        this._boxPose(building, box, pose);
-        dummy.position.copy(pose.position);
-        dummy.quaternion.copy(pose.quaternion);
-        dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
+    if (unknown.length) this._addUnknownBuildings(unknown, group);
+  }
+
+  /** 画一组同形同色的建筑（InstancedMesh） */
+  _addBuilding(entry, group, materialOf) {
+    const { box, color, items } = entry;
+    // 游戏世界单位 → 场景单位
+    const width = box.ext[0] * 2 * GAME_UNIT_SCENE;
+    const height = box.ext[1] * 2 * GAME_UNIT_SCENE;
+    const depth = box.ext[2] * 2 * GAME_UNIT_SCENE;
+
+    // 同色共用材质
+    if (!materialOf.has(color)) {
+      materialOf.set(color, new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.7,
+        metalness: 0,
+      }));
+    }
+    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(width, height, depth), materialOf.get(color), items.length);
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+    mesh.userData.itemIds = [...new Set(items.map((b) => b.itemId))];
+    mesh.userData.box = box;
+    mesh.userData.color = color;
+    // 拾取: instanceId → 建筑（多块碰撞箱时每份网格各记一份）
+    mesh.userData.pickBuildings = items;
+
+    const pose = { position: new THREE.Vector3(), quaternion: new THREE.Quaternion() };
+    const dummy = new THREE.Object3D();
+    items.forEach((building, i) => {
+      this._boxPose(building, box, pose);
+      dummy.position.copy(pose.position);
+      dummy.quaternion.copy(pose.quaternion);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    group.add(mesh);
+  }
+
+  /** 画一栋信标的投影：三个通道圆盘 + 光柱 */
+  _addHologram(entry, group) {
+    const { building, color } = entry;
+    if (!color) return;   // 0 号色：透明，不画圆盘和光柱
+
+    const dir = surfaceDirection(building.latDeg, building.lngDeg);
+    const base = this._posOf(building);
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    const height = positiveOr(building.parameters?.height, HOLOGRAM_DEFAULT_HEIGHT);
+    const radius = positiveOr(building.parameters?.radius, HOLOGRAM_DEFAULT_RADIUS);
+
+    for (const disc of HOLOGRAM_DISCS) {
+      const geometry = new THREE.PlaneGeometry(1, 1);
+      geometry.rotateX(-Math.PI / 2);
+      const material = new THREE.MeshBasicMaterial({
+        map: this._hologramTexture(disc.mask),
+        color,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
       });
-      mesh.instanceMatrix.needsUpdate = true;
+      // 遮罩跨蓝图复用，清层时不要释放
+      material.userData.keepMap = true;
+
+      const mesh = new THREE.Mesh(geometry, material);
+      const ringHeight = Math.max(0, height + disc.lift * radius);   // 别落到地表以下
+      mesh.position.copy(base).addScaledVector(dir, ringHeight * GAME_UNIT_SCENE);
+      mesh.quaternion.copy(quaternion);
+      mesh.scale.setScalar(radius * 2 * disc.size * GAME_UNIT_SCENE);
+      mesh.name = `factory-hologram-${disc.mask}`;
+      mesh.renderOrder = 5;
       group.add(mesh);
     }
 
+    // 光柱
+    const start = base.clone().addScaledVector(dir, HOLOGRAM_PILLAR_START * GAME_UNIT_SCENE);
+    const end = base.clone().addScaledVector(dir, height * GAME_UNIT_SCENE);
+    const length = start.distanceTo(end);
+    const pillarMaterial = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: HOLOGRAM_PILLAR_OPACITY,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), pillarMaterial);
+    pillar.position.copy(start).add(end).multiplyScalar(0.5);
+    pillar.quaternion.copy(quaternion);
+    const pillarRadius = radius * HOLOGRAM_PILLAR_RADIUS * GAME_UNIT_SCENE;
+    pillar.scale.set(pillarRadius, length, pillarRadius);
+    pillar.name = 'factory-hologram-pillar';
+    pillar.renderOrder = 5;
+    group.add(pillar);
+  }
+
+  /** 画未知建筑：统一棋盘立方体，整批一个 InstancedMesh */
+  _addUnknownBuildings(unknown, group) {
     if (!unknown.length) return;
-    // 贴图与几何都共用模块级那份，所以网格自己 clone 一份（清理时按网格 dispose，见 _clearBuildings）
+    // 几何/贴图共用模块级，网格 clone 一份
     const cube = new THREE.InstancedMesh(
       unknownCubeGeometry().clone(),
       new THREE.MeshStandardMaterial({ map: unknownCubeTexture().clone(), roughness: 0.7, metalness: 0 }),
@@ -906,11 +1018,11 @@ class FactoryPreview {
     cube.instanceMatrix.setUsage(THREE.StaticDrawUsage);
     cube.userData.itemIds = [...new Set(unknown.map((b) => b.itemId))];
     cube.userData.modelIndexes = [...new Set(unknown.map((b) => b.modelIndex))];
-    // 故意不设 cube.userData.pickBuildings: 未知建筑不计入拾取（见 _pickTargets / _pickBuilding）
+    // 未知建筑不参与拾取
 
     const dummy = new THREE.Object3D();
     unknown.forEach((building, i) => {
-      // 立方体原点在中心，所以贴落点时抬半格（与碰撞箱中心的做法一致，见 _boxPose）
+      // 立方体原点在中心，抬半格
       dummy.position.copy(this._posOf(building))
         .addScaledVector(surfaceDirection(building.latDeg, building.lngDeg), CELL_SCENE * 0.5);
       dummy.quaternion.copy(buildingOrientation(building));
@@ -919,6 +1031,21 @@ class FactoryPreview {
     });
     cube.instanceMatrix.needsUpdate = true;
     group.add(cube);
+  }
+
+  /** 全息圆盘通道遮罩（R/G/B，预览内共用） */
+  _hologramTexture(mask) {
+    if (this._hologramMaps[mask]) return this._hologramMaps[mask];
+
+    const url = mask === 'R' ? hologramMaskR : (mask === 'G' ? hologramMaskG : hologramMaskB);
+    const texture = new THREE.TextureLoader().load(url, () => {
+      this._needsRender = true;
+    });
+    // 通道数据，不要声明成 sRGB
+    texture.colorSpace = THREE.NoColorSpace;
+    texture.anisotropy = 4;
+    this._hologramMaps[mask] = texture;
+    return texture;
   }
 
   /**
@@ -1621,7 +1748,8 @@ class FactoryPreview {
       object.dispose?.();               // InstancedMesh 自己的实例缓冲
     });
     for (const material of materials) {
-      material.map?.dispose();          // 建筑层的方块没有贴图，只有未知建筑那份有
+      // 全息遮罩共用，别跟着清层释放
+      if (!material.userData?.keepMap) material.map?.dispose();
       material.dispose();
     }
     this._layerGroups.buildings = null;
@@ -2301,6 +2429,8 @@ class FactoryPreview {
     this._gridLinesMajor = null;
     this._gridLinesTropic = null;
     this._clearBlueprintObjects();
+    for (const texture of Object.values(this._hologramMaps)) texture.dispose();
+    this._hologramMaps = {};
     this._planet?.geometry.dispose();
     this._planet?.material.dispose();
     this._planet = null;

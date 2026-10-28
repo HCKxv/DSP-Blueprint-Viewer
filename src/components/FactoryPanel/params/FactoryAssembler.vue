@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /** 制造设备的参数 */
 import { computed, reactive, ref } from 'vue'
-import { ACCELERATOR_MODE_NAMES, RESEARCH_MODE_NAMES, isLab } from '../../lib/blueprint/factory/factoryItems.js'
-import { recipeName, recipeProductive } from '../../lib/blueprint/factory/factoryRecipes.js'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
-import type { IconRef } from '../../lib/markup/itemIcons'
-import { recipeCategoriesForBuilding } from '../../lib/markup/recipeCatalog'
-import IconPickerModal from './IconPickerModal.vue'
-import RecipeTip from './RecipeTip.vue'
+import { isLab } from '../../../lib/blueprint/factory/factoryItems.js'
+import { recipeName, recipeProductive } from '../../../lib/blueprint/factory/factoryRecipes.js'
+import { itemIconUrl } from '../../../lib/markup/itemIcons'
+import type { IconRef } from '../../../lib/markup/itemIcons'
+import { recipeCategoriesForBuilding } from '../../../lib/markup/recipeCatalog'
+import IconPickerModal from '../IconPickerModal.vue'
+import RecipeTip from '../RecipeTip.vue'
 
 const props = defineProps<{
   /** 建筑id */
@@ -24,6 +24,19 @@ const emit = defineEmits<{
   /** 换了一个配方；父组件落进暂存，点保存才写回蓝图 */
   'update:recipeId': [number]
 }>()
+
+/** 研究模式（研究站） */
+const RESEARCH_MODE_NAMES: Record<number, string> = {
+  0: '未选择',
+  1: '矩阵合成',
+  2: '科研模式',
+}
+
+/** 增产效果 */
+const ACCELERATOR_MODE_NAMES: Record<number, string> = {
+  0: '额外产出',
+  1: '生产加速',
+}
 
 /** 研究站才有「模式」这一行 */
 const lab = computed(() => isLab(props.itemId))

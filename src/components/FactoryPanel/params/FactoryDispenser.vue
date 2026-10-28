@@ -3,10 +3,10 @@
  * 物流配送器（2107）的参数
  */
 import { computed, ref } from 'vue'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
-import type { IconCategories, IconRef } from '../../lib/markup/itemIcons'
-import { itemName } from '../../lib/blueprint/factory/factoryItems.js'
-import IconPickerModal from './IconPickerModal.vue'
+import { itemIconUrl } from '../../../lib/markup/itemIcons'
+import type { IconCategories, IconRef } from '../../../lib/markup/itemIcons'
+import { itemName } from '../../../lib/blueprint/factory/factoryItems.js'
+import IconPickerModal from '../IconPickerModal.vue'
 
 // 挡位表: 0 由勾选项表示，所以这里只列 0 以外的挡位
 const PLAYER_MODES = [1, 2, 3]; // 回收 / 供应和回收 / 供应

@@ -164,7 +164,7 @@ function base64ToInt32Array(b64) {
   return new Int32Array(u8.buffer, 0, Math.floor(u8.byteLength / 4));
 }
 
-// 从参数对象还原原始 int32 数组（未知建筑/信标等需要原样往返的参数）
+// 从参数对象还原原始 int32 数组（未知建筑等需要原样往返的参数）
 function paramsToWords(params) {
   if (params && typeof params._defaultParamsBase64 === 'string' && params._defaultParamsBase64) {
     return base64ToInt32Array(params._defaultParamsBase64);
@@ -191,7 +191,7 @@ const defaultCodec = {
 // 最大充能功率 MW → 原始值
 function workEnergyPerTickEncode(v) { return Math.round(v * 50000 / 3); }
 // 最大充能功率 原始值 → MW
-function workEnergyPerTickDecode(v) { return Math.round(v / 5000 * 3) / 10; }
+function workEnergyPerTickDecode(v) { return Math.round(v / 50 * 3) / 1000; }
 
 // ─────────────────────────────────────────────────────────────
 // 各类建筑参数编解码器
@@ -288,7 +288,7 @@ const monitorCodec = codec(128, {
   targetBeltId: int(0),        // 绑定的传送带节点ID
   offset: int(1),
   targetCargoAmount: int(2),   // 目标流量（0.1个）
-  periodTicksCount: int(3),    // 监测周期（秒）
+  periodTicksCount: int(3),    // 监测周期（tick，60 tick = 1 秒）
   passOperator: int(4),        // 监测条件 -> 0:等于 1:不等于 2:>= 3:> 4:<= 5:<
   passColorId: int(5),         // 满足条件颜色索引
   failColorId: int(6),         // 不满足条件颜色索引
@@ -303,6 +303,7 @@ const monitorCodec = codec(128, {
   systemWarningIconId: int(17), // 系统警报图标id
   falloffRadius: arr(2, (i) => fun(18 + i, (v) => v * 10, (v) => v / 10)), // 衰减距离
   spawnItemOperator: int(20),  // 生成/消耗货物模式 -> 0:不勾选 1:生成 2:消耗
+  digitalSignalId: int(21),    // 信号传输IP
 });
 
 // 射线接收站 [2208]
@@ -316,9 +317,10 @@ const energyExchangerCodec = codec(1, {
 });
 
 // 电磁轨道弹射器 [2311]
-const ejectorCodec = codec(2, {
+const ejectorCodec = codec(3, {
   orbitId: int(0),         // 送入轨道编号 -> 0:无 1-20:轨道编号
   tenfoldSpeed: bool(1, 1, 0), // 是否开启十倍射速
+  autoOrbit: bool(2, 1, 0),    // 是否开启自动轨道
 });
 
 // 垂直发射井 [2312]
@@ -357,13 +359,18 @@ const turretCodec = codec(128, {
   phasePos: fun(3, (v) => v * 60, (v) => v / 60), // 干扰塔相位偏移（秒）
 });
 
-// 全息信标 [2401]：固定 2048 int32，仅前 7 个字段已解析，其余原样保留
+// 全息信标 [2401]：固定 2048 int32；0-7 为普通字段，47 起为待办文字颜色索引，其余原样保留
 const MARKER_SIZE = 2048;
+const MARKER_TODO_LENGTH_OFFSET = 47;
+const MARKER_TODO_COLOR_OFFSET = 48;
 const markerCodec = {
   size: MARKER_SIZE,
   decode(words) {
+    const todoColorIndexLength = Math.max(
+      0,
+      Math.min(words[MARKER_TODO_LENGTH_OFFSET] ?? 0, MARKER_SIZE - MARKER_TODO_COLOR_OFFSET),
+    );
     return {
-      _defaultParamsBase64: int32ArrayToBase64(words),
       color: words[0] ?? 0,           // 颜色索引
       height: (words[1] ?? 0) / 100,  // 投影高度
       radius: (words[2] ?? 0) / 100,  // 投影半径
@@ -371,14 +378,17 @@ const markerCodec = {
       detailLevel: words[4] ?? 0,     // 信息等级 -> 0:不常显 1:常显图标 2:常显标题 3:常显待办
       icon: words[5] ?? 0,            // 图标ID
       digitalSignalId: words[6] ?? 0, // 信号传输IP
+      dfAttractionFlags: words[7] ?? 0, // 黑雾吸引力 -> bit0:中继器 bit1:火种
+      // 待办文字颜色索引: [47] = 长度 N, [48..47+N] = 每个字符一个索引（负值 = 透明）
+      todoColorIndexLength,
+      todoColorIndexes: Array.from(words.slice(
+        MARKER_TODO_COLOR_OFFSET,
+        MARKER_TODO_COLOR_OFFSET + todoColorIndexLength,
+      )),
     };
   },
   encode(params) {
     const words = new Int32Array(MARKER_SIZE);
-    const raw = paramsToWords(params);
-    if (raw.length > 0) {
-      words.set(raw.subarray(0, MARKER_SIZE));
-    }
     if (params) {
       words[0] = params.color ?? 0;
       words[1] = Math.round((params.height ?? 0) * 100);
@@ -387,6 +397,15 @@ const markerCodec = {
       words[4] = params.detailLevel ?? 0;
       words[5] = params.icon ?? 0;
       words[6] = params.digitalSignalId ?? 0;
+      words[7] = params.dfAttractionFlags ?? 0;
+
+      if (Array.isArray(params.todoColorIndexes)) {
+        const colors = params.todoColorIndexes.slice(0, MARKER_SIZE - MARKER_TODO_COLOR_OFFSET);
+        words[MARKER_TODO_LENGTH_OFFSET] = colors.length;
+        colors.forEach((value, i) => {
+          words[MARKER_TODO_COLOR_OFFSET + i] = Number(value) | 0;
+        });
+      }
     }
     return words;
   },

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /** 传送带的参数 */
 import { computed, ref } from 'vue'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
-import type { IconCategories, IconRef } from '../../lib/markup/itemIcons'
-import { itemName } from '../../lib/blueprint/factory/factoryItems.js'
-import IconPickerModal from './IconPickerModal.vue'
+import { itemIconUrl } from '../../../lib/markup/itemIcons'
+import type { IconCategories, IconRef } from '../../../lib/markup/itemIcons'
+import { itemName } from '../../../lib/blueprint/factory/factoryItems.js'
+import IconPickerModal from '../IconPickerModal.vue'
 
 const props = defineProps<{
   /** 这栋建筑的参数对象 */

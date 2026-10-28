@@ -217,7 +217,7 @@ export const BUILDING_MODELS = {
   45: { colliders: [{ center: [0, 7.66, 0], ext: [5.85, 2.055, 5.85] }, { center: [0, 5.3, 0], ext: [3.9, 5.3, 3.9] }], color: null,}, // 能量枢纽
   371: { colliders: [{ center: [0, 1.1, 0], ext: [1.55, 0.95, 1.65] }], color: 0x626566 }, // 物流配送器
   208: { colliders: [{ center: [0, 0.6, 0], ext: [0.45, 0.575, 0.55] }], color: null }, // 流速监测器
-  664: { colliders: [{ center: [0, 1.5, 0], ext: [0.2, 1.5, 0.2] }], color: 0xA6EB80 }, // 全息信标
+  664: { colliders: [{ center: [0, 1.5, 0], ext: [0.2, 1.5, 0.2] }], color: null }, // 全息信标
   38: { colliders: [{ center: [0, 1.15, 0], ext: [0.625, 1.15, 1.19] },{ center: [0, 1.15, 0], ext: [1.19, 1.15, 0.625] }], color: null }, // 四向分流器 A 形
   39: { colliders: [{ center: [0, 1.3, 0], ext: [0.825, 1.2, 1.19] }], color: null }, // 四向分流器 B 形
   40: { colliders: [{ center: [0, 1.3, 0], ext: [0.625, 1.2, 1.19] },{ center: [0, 1.3, 0], ext: [1.19, 1.2, 0.625] }], color: null }, // 四向分流器 C 形

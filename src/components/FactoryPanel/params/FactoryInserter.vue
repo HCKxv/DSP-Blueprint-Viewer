@@ -3,10 +3,10 @@
  * 分拣器的参数（2011~2014）
  */
 import { ref } from 'vue'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
-import type { IconCategories, IconRef } from '../../lib/markup/itemIcons'
-import { itemName } from '../../lib/blueprint/factory/factoryItems.js'
-import IconPickerModal from './IconPickerModal.vue'
+import { itemIconUrl } from '../../../lib/markup/itemIcons'
+import type { IconCategories, IconRef } from '../../../lib/markup/itemIcons'
+import { itemName } from '../../../lib/blueprint/factory/factoryItems.js'
+import IconPickerModal from '../IconPickerModal.vue'
 
 defineProps<{
   /** 蓝图里这个分拣器的长度（parameters[0]，1~3 格） */

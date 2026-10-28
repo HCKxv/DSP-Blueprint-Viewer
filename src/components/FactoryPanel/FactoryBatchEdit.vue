@@ -10,7 +10,6 @@ import { BATCH_RULE_TYPES } from '../../lib/factory/batch.js'
 import { recipeCategoriesAll, recipeCategoriesOfType } from '../../lib/markup/recipeCatalog'
 import { recipeName, recipeType } from '../../lib/blueprint/factory/factoryRecipes.js'
 import { itemName } from '../../lib/blueprint/factory/factoryItems.js'
-import { ACCELERATOR_MODE_NAMES } from '../../lib/blueprint/factory/factoryItems.js'
 import { ICON_CATEGORIES } from '../../lib/markup/iconCatalog'
 import { itemIconUrl } from '../../lib/markup/itemIcons'
 import type { IconCategories, IconRef } from '../../lib/markup/itemIcons'
@@ -32,7 +31,8 @@ const PICKER_NOUN: Record<string, string> = {
 /** 增产模式下拉选项（替换配方用）: 「不修改」= null */
 const ACCELERATOR_OPTIONS: { value: string, label: string }[] = [
   { value: 'null', label: '不修改' },
-  ...Object.entries(ACCELERATOR_MODE_NAMES).map(([value, label]) => ({ value, label })),
+  { value: '0', label: '额外产出' },
+  { value: '1', label: '生产加速' },
 ]
 
 /** 下拉当前该显示哪一项 */

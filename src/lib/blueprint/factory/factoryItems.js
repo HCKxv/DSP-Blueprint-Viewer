@@ -60,24 +60,6 @@ function itemName(itemId) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 参数值的显示名称（参数原始值 → 中文名）
-// ─────────────────────────────────────────────────────────────
-// 传送带插槽接入方向
-const SLOT_DIR_NAMES = { 0: '未接入', 1: '输出', 2: '输入' };
-// 物流供需配置
-const LOGISTIC_ROLE_NAMES = { 0: '仓储', 1: '供应', 2: '需求' };
-// 供需三档的配色（仓储灰 / 供应青 / 需求橙）
-const LOGISTIC_ROLE_COLORS = { 0: '#9fb0d0', 1: '#5fd3f2', 2: '#ef9a5a' };
-// 物品上限锁定
-const LOCK_AMOUNT_NAMES = { 0: '不锁定', 1: '锁定满仓', 2: '锁定半仓', 3: '锁定空仓' };
-// 储物仓类型
-const STORAGE_TYPE_NAMES = { 0: '不过滤', 9: '存在过滤器' };
-// 研究模式（研究站）
-const RESEARCH_MODE_NAMES = { 0: '未选择', 1: '矩阵合成', 2: '科研模式' };
-// 增产效果
-const ACCELERATOR_MODE_NAMES = { 0: '额外产出', 1: '生产加速' };
-
-// ─────────────────────────────────────────────────────────────
 // 建筑类型判定
 // ─────────────────────────────────────────────────────────────
 const BELT_IDS = new Set([2001, 2002, 2003]);                  // 传送带
@@ -103,13 +85,6 @@ const isSorterRange = (id) => id > 2010 && id < 2020;  // 分拣器类：双端�
 export {
   ITEM_NAMES,
   itemName,
-  SLOT_DIR_NAMES,
-  LOGISTIC_ROLE_NAMES,
-  LOGISTIC_ROLE_COLORS,
-  LOCK_AMOUNT_NAMES,
-  STORAGE_TYPE_NAMES,
-  RESEARCH_MODE_NAMES,
-  ACCELERATOR_MODE_NAMES,
   isBelt,
   isInserter,
   isAssembler,

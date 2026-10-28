@@ -7,13 +7,11 @@
  * 滑杆上的值一律是「界面单位」，写回参数时由 codec 换算成原始 int32。
  */
 import { computed, nextTick, reactive, ref, watch } from 'vue'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
-import type { IconCategories, IconRef } from '../../lib/markup/itemIcons'
-import {
-  LOGISTIC_ROLE_COLORS as ROLE_COLORS, LOGISTIC_ROLE_NAMES, LOCK_AMOUNT_NAMES, itemName,
-} from '../../lib/blueprint/factory/factoryItems.js'
-import IconPickerModal from './IconPickerModal.vue'
-import FactorySelect from './FactorySelect.vue'
+import { itemIconUrl } from '../../../lib/markup/itemIcons'
+import type { IconCategories, IconRef } from '../../../lib/markup/itemIcons'
+import { itemName } from '../../../lib/blueprint/factory/factoryItems.js'
+import IconPickerModal from '../IconPickerModal.vue'
+import FactorySelect from '../FactorySelect.vue'
 
 const props = defineProps<{
   /** 这栋建筑是哪一种（2103 行星内 / 2104 星际） */
@@ -30,6 +28,19 @@ const emit = defineEmits<{
   /** 给「保存」左边的提示位 */
   hint: [text: string]
 }>()
+
+/** 物流供需三档的配色 */
+const ROLE_COLORS = { 0: '#9fb0d0', 1: '#5fd3f2', 2: '#ef9a5a' }
+
+/** 物流供需配置 */
+const LOGISTIC_ROLE_NAMES: Record<number, string> = {
+  0: '仓储',
+  1: '供应',
+  2: '需求',
+}
+
+/** 物品上限锁定 */
+const LOCK_AMOUNT_TEXT = ['不锁', '满仓', '半仓', '空仓']
 
 /** 物品上限: 吸附到 100 的倍数；行星内站每栏只有星际站的一半 */
 const MIN_ITEM_AMOUNT = 0
@@ -237,8 +248,7 @@ function onToggle(field: Field, e: Event) {
 // ── 物品栏 ────────────────────────────────────────────────────
 /** 锁定那一格的短文字（「不锁定」太长，按钮里放后半截） */
 function lockText(lock: number) {
-  const name = LOCK_AMOUNT_NAMES[Number(lock)] ?? LOCK_AMOUNT_NAMES[0]
-  return name === '不锁定' ? '不锁' : name.replace('锁定', '')
+  return LOCK_AMOUNT_TEXT[Number(lock)] ?? LOCK_AMOUNT_TEXT[0]
 }
 
 /** 这一栏改了什么，就交一份新的 storage 出去 */

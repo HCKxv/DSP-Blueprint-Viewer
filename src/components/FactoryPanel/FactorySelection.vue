@@ -8,14 +8,24 @@ import { itemIconUrl } from '../../lib/markup/itemIcons'
 import type { IconCategories } from '../../lib/markup/itemIcons'
 import { ICON_CATEGORIES } from '../../lib/markup/iconCatalog'
 import { useToast } from '../../composables/useToast'
-import FactoryAssembler from './FactoryAssembler.vue'
-import FactoryBelt from './FactoryBelt.vue'
-import FactoryDispenser from './FactoryDispenser.vue'
-import FactoryInserter from './FactoryInserter.vue'
-import FactoryStation from './FactoryStation.vue'
-import FactoryStorage from './FactoryStorage.vue'
+import FactoryAssembler from './params/FactoryAssembler.vue'
+import FactoryBelt from './params/FactoryBelt.vue'
+import FactoryDispenser from './params/FactoryDispenser.vue'
+import FactoryEjector from './params/FactoryEjector.vue'
+import FactoryInserter from './params/FactoryInserter.vue'
+import FactoryMonitor from './params/FactoryMonitor.vue'
+import FactoryMarker from './params/FactoryMarker.vue'
+import FactoryParamSelect from './params/FactoryParamSelect.vue'
+import FactoryStation from './params/FactoryStation.vue'
+import FactoryStorage from './params/FactoryStorage.vue'
 
 const toast = useToast()
+
+/** 储液罐的输出/输入；参数解析后是 bool */
+const TANK_SWITCH_OPTIONS = [
+  { value: true, name: '开' },
+  { value: false, name: '关' },
+]
 
 /** 图标与名字 */
 const icon = computed(() => (selectedBuilding.value ? itemIconUrl(selectedBuilding.value.itemId) : ''))
@@ -225,46 +235,81 @@ watch(() => selectedBuilding.value?.index, () => {
       @change="onParametersChange"
     />
 
-    <!-- 储物仓（2101 / 2102）、储液罐（2106）与战场分析基站（3009） -->
+    <!-- 射线接收站（2208） -->
+    <FactoryParamSelect
+      v-if="Number(selectedBuilding.itemId) === 2208"
+      :key="selectedBuilding.index"
+      :parameters="parameters"
+      field="productId"
+      name="模式"
+      :options="[{ value: 0, name: '直接发电' }, { value: 1208, name: '光子生成' }]"
+      @change="onParametersChange"
+    />
+
+    <!-- 电磁轨道弹射器（2311）/ 垂直发射井（2312） -->
+    <FactoryEjector
+      v-if="[2311, 2312].includes(Number(selectedBuilding.itemId))"
+      :key="selectedBuilding.index"
+      :item-id="Number(selectedBuilding.itemId)"
+      :parameters="parameters"
+      @change="onParametersChange"
+    />
+
+    <!-- 流速监测器（2030） -->
+    <FactoryMonitor
+      v-if="Number(selectedBuilding.itemId) === 2030"
+      :key="selectedBuilding.index"
+      :parameters="parameters"
+    />
+
+    <!-- 全息信标（2401） -->
+    <FactoryMarker
+      v-if="Number(selectedBuilding.itemId) === 2401"
+      :key="selectedBuilding.index"
+      :parameters="parameters"
+      :content="selectedBuilding.content"
+      :index="Number(selectedBuilding.index)"
+    />
+
+    <!-- 储物仓（2101 / 2102）与战场分析基站（3009） -->
     <FactoryStorage
-      v-if="[2101, 2102, 2106, 3009].includes(Number(selectedBuilding.itemId))"
+      v-if="[2101, 2102, 3009].includes(Number(selectedBuilding.itemId))"
       :key="selectedBuilding.index"
       :type="Number(selectedBuilding.itemId)"
       :parameters="parameters"
     />
 
-    <!-- 射线接收站（2208） -->
-    <div
-      v-if="Number(selectedBuilding.itemId) === 2208"
-      class="factory-selection-params"
-    >
-      <div class="factory-selection-row factory-selection-param">
-        <span class="factory-selection-label">模式</span>
-        <select
-          class="factory-selection-select"
-          :value="parameters?.productId ?? 0"
-          @change="(e)=>(onParametersChange('productId', Number((e.target as HTMLSelectElement).value)))"
-        >
-          <option
-            v-for="mode in [{ value: 0, name: '直接发电' },{ value: 1208, name: '光子生成' },]"
-            :key="mode.value" :value="mode.value"
-          >{{ mode.name }}</option>
-        </select>
-      </div>
-    </div>
+    <!-- 储液罐（2106）：输出 / 输入两个下拉 -->
+    <template v-if="Number(selectedBuilding.itemId) === 2106">
+      <FactoryParamSelect
+        :parameters="parameters"
+        field="output"
+        name="输出"
+        :options="TANK_SWITCH_OPTIONS"
+        :readonly="true"
+        @change="onParametersChange"
+      />
+      <FactoryParamSelect
+        :parameters="parameters"
+        field="input"
+        name="输入"
+        :options="TANK_SWITCH_OPTIONS"
+        :readonly="true"
+        @change="onParametersChange"
+      />
+    </template>
 
     <!-- 能量枢纽（2209） -->
-    <div
+    <FactoryParamSelect
       v-if="Number(selectedBuilding.itemId) === 2209"
-      class="factory-selection-params"
-    >
-      <div class="factory-selection-row factory-selection-param">
-        <span class="factory-selection-value">模式：{{
-          [{ value: -1, name: '放电' },{ value: 0, name: '待机' },{ value: 1, name: '充电' },]
-            .find((mode) => mode.value === Number(parameters?.mode ?? 0))?.name ?? '待机'
-        }}</span>
-      </div>
-    </div>
+      :key="selectedBuilding.index"
+      :parameters="parameters"
+      field="mode"
+      name="模式"
+      :options="[{ value: -1, name: '放电' }, { value: 0, name: '待机' }, { value: 1, name: '充电' }]"
+      :readonly="true"
+      @change="onParametersChange"
+    />
 
     <!-- 编辑: 有改动才可点 -->
     <div class="factory-selection-actions">
