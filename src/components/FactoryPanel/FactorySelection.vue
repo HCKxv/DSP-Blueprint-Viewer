@@ -2,7 +2,7 @@
 /** 详情: 预览里点中的那栋建筑 */
 import { computed, reactive, ref, watch } from 'vue'
 import { editBuilding, editLabGroup, editStationType, linkedLabBuildings, selectedBuilding, selectedBuildingCoord } from '../../stores/factory'
-import { isAssembler, isBelt, isInserter, isLab, isStation, itemName } from '../../lib/blueprint/factory/factoryItems.js'
+import { isAssembler, isBelt, isInserter, isLab, isStation, isTurret, itemName } from '../../lib/blueprint/factory/factoryItems.js'
 import { cloneData } from '../../lib/blueprint/clonePlain.js'
 import { itemIconUrl } from '../../lib/markup/itemIcons'
 import type { IconCategories } from '../../lib/markup/itemIcons'
@@ -18,6 +18,7 @@ import FactoryMarker from './params/FactoryMarker.vue'
 import FactoryParamSelect from './params/FactoryParamSelect.vue'
 import FactoryStation from './params/FactoryStation.vue'
 import FactoryStorage from './params/FactoryStorage.vue'
+import FactoryTurret from './params/FactoryTurret.vue'
 
 const toast = useToast()
 
@@ -271,6 +272,14 @@ watch(() => selectedBuilding.value?.index, () => {
       :index="Number(selectedBuilding.index)"
     />
 
+    <!-- 炮台（3001-3006 / 3010） -->
+    <FactoryTurret
+      v-if="isTurret(Number(selectedBuilding.itemId))"
+      :key="selectedBuilding.index"
+      :item-id="Number(selectedBuilding.itemId)"
+      :parameters="parameters"
+    />
+
     <!-- 储物仓（2101 / 2102）与战场分析基站（3009） -->
     <FactoryStorage
       v-if="[2101, 2102, 3009].includes(Number(selectedBuilding.itemId))"
@@ -287,7 +296,6 @@ watch(() => selectedBuilding.value?.index, () => {
         name="输出"
         :options="TANK_SWITCH_OPTIONS"
         :readonly="true"
-        @change="onParametersChange"
       />
       <FactoryParamSelect
         :parameters="parameters"
@@ -295,7 +303,6 @@ watch(() => selectedBuilding.value?.index, () => {
         name="输入"
         :options="TANK_SWITCH_OPTIONS"
         :readonly="true"
-        @change="onParametersChange"
       />
     </template>
 
@@ -308,7 +315,6 @@ watch(() => selectedBuilding.value?.index, () => {
       name="模式"
       :options="[{ value: -1, name: '放电' }, { value: 0, name: '待机' }, { value: 1, name: '充电' }]"
       :readonly="true"
-      @change="onParametersChange"
     />
 
     <!-- 编辑: 有改动才可点 -->

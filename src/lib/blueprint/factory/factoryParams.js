@@ -328,6 +328,11 @@ const siloCodec = codec(1, {
   tenfoldSpeed: bool(0, 1, 0),
 });
 
+// 人造恒星 [2210]
+const artificialStarCodec = codec(1, {
+  hundredfoldPower: bool(0, 1, 0),
+});
+
 // 战场分析基站 [3009]
 // 过滤器仅在 storageType === 9 时占偏移量，其后的字段随动
 const battleBaseCodec = (() => {
@@ -424,6 +429,7 @@ const PARAM_CODECS = new Map([
   [2311, ejectorCodec],         // 电磁轨道弹射器
   [2208, rayReceiverCodec],     // 射线接收站
   [2209, energyExchangerCodec], // 能量枢纽
+  [2210, artificialStarCodec],  // 人造恒星
   [2312, siloCodec],            // 垂直发射井
   [2030, monitorCodec],         // 流速监测器
   [2107, dispenserCodec],       // 物流配送器
