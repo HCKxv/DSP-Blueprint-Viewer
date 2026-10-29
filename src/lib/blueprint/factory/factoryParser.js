@@ -318,21 +318,10 @@ function parseReformData(reader) {
   for (let i = 0; i < colorCount && i < 2930400; i += 1) {
     customReformColors.push(reader.readUInt32());
   }
-  //   reformCount        = 所有矩形的 w*h 之和
-  //   undecalReformCount = 其中 type == 7（无装饰 = 清除地基）的那些
-  let reformCount = 0;
-  let undecalReformCount = 0;
-  for (const rect of rects) {
-    const cells = rect.w * rect.h;
-    reformCount += cells;
-    if (rect.type === 7) undecalReformCount += cells;
-  }
   return {
     rects,
     customReformColorMask,
     customReformColors,
-    reformCount,
-    undecalReformCount,
   };
 }
 

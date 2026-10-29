@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /** 详情: 预览里点中的那栋建筑 */
 import { computed, reactive, ref, watch } from 'vue'
-import { editBuilding, editLabGroup, editStationType, linkedLabBuildings, selectedBuilding, selectedBuildingCoord } from '../../stores/factory'
+import { deleteBuilding, editBuilding, editLabGroup, editStationType, factory, linkedLabBuildings, selectedBuilding, selectedBuildingCoord } from '../../stores/factory'
 import { isAssembler, isBelt, isInserter, isLab, isStation, isTurret, itemName } from '../../lib/blueprint/factory/factoryItems.js'
 import { cloneData } from '../../lib/blueprint/clonePlain.js'
 import { itemIconUrl } from '../../lib/markup/itemIcons'
@@ -103,6 +103,23 @@ const labCount = computed(() => (isLab(selectedBuilding.value?.itemId)
   ? linkedLabBuildings(Number(selectedBuilding.value?.index)).length
   : 0))
 
+/** 分拣器两端连接：inputObjIdx / outputObjIdx 指向的建筑 */
+const inserterConnection = computed(() => {
+  const building = selectedBuilding.value
+  const buildings = factory.blueprint?.buildings
+  if (!building || !Array.isArray(buildings)) return { input: null, output: null }
+  const at = (target: unknown) => {
+    const index = Number(target)
+    const targetBuilding = buildings[index]
+    if (!targetBuilding || Number(targetBuilding.index) !== index) return null
+    return { index, itemId: Number(targetBuilding.itemId) }
+  }
+  return {
+    input: at(building.inputObjIdx),
+    output: at(building.outputObjIdx),
+  }
+})
+
 /** 清空暂存 */
 function resetStaged() {
   for (const key of Object.keys(staged)) delete staged[key]
@@ -121,6 +138,20 @@ function onSave() {
   // 保存成功就清空暂存
   if (ok) resetStaged()
   toast.show(ok ? '已保存该建筑的修改' : '保存失败：没找到该建筑')
+}
+
+/** 删除选中的建筑: 立即生效 */
+function onDeleteBuilding() {
+  const building = selectedBuilding.value
+  if (!building) return
+
+  const index = Number(building.index)
+  const label = name.value
+  if (!deleteBuilding(index)) {
+    toast.show('删除失败：没找到该建筑')
+    return
+  }
+  toast.show(`已删除 #${index} ${label}`)
 }
 
 // 换选中建筑时清空暂存和提示
@@ -211,6 +242,8 @@ watch(() => selectedBuilding.value?.index, () => {
       :length="Number(parameters?.length ?? 0)"
       :filter-id="Number(staged.filterId ?? selectedBuilding.filterId ?? 0)"
       :item-icons="itemIcons"
+      :input="inserterConnection.input"
+      :output="inserterConnection.output"
       @update:filter-id="(v) => (staged.filterId = v)"
     />
 
@@ -319,6 +352,11 @@ watch(() => selectedBuilding.value?.index, () => {
 
     <!-- 编辑: 有改动才可点 -->
     <div class="factory-selection-actions">
+      <button
+        class="btn-sm factory-selection-delete"
+        type="button"
+        @click="onDeleteBuilding"
+      >删除建筑</button>
       <span class="factory-selection-hint" role="status">{{ paramHint }}</span>
       <button
         class="btn-sm btn-ghost"
@@ -432,6 +470,20 @@ watch(() => selectedBuilding.value?.index, () => {
   font-size: 12px;
   color: var(--fg-muted);
   min-height: 16px;
+}
+
+/* 删除建筑: 单独放操作行最左边，跟保存 / 放弃隔开 */
+.factory-selection-delete {
+  margin-right: auto;
+  border: 1px solid rgba(255, 138, 138, 0.4);
+  background: transparent;
+  color: var(--danger);
+}
+
+.factory-selection-delete:hover {
+  border-color: var(--danger);
+  background: rgba(255, 120, 120, 0.14);
+  color: var(--danger);
 }
 
 .factory-selection-save {

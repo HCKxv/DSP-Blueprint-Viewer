@@ -5,10 +5,8 @@ import {
   factory,
   facilities,
   buildingCount,
-  foundationTotal,
-  foundationDecal,
-  foundationUndecal,
-  hasFoundation,
+  foundation,
+  discardFacility,
   LIMITS,
 } from '../../stores/factory'
 import { itemIconUrl } from '../../lib/markup/itemIcons'
@@ -95,16 +93,24 @@ function closePicker() {
   picker.anchor = null
 }
 
-/** 设施清单 + 图标 URL */
+/** 设施清单 + 图标 */
 const facList = computed(() => facilities.value.map((item) => ({
-  ...item,
-  icon: itemIconUrl(item.itemId),
+  itemId: item.id,
+  name: item.名字,
+  count: item.数量,
+  icon: itemIconUrl(item.id),
 })))
 
 /** 「带装饰地基 / 无装饰地基」两个图标 */
 const reformIcons = {
   decal: decalIcon,
   undecal: undecalIcon,
+}
+
+/** 右键设施图标 = 剔除这一类 */
+function onDiscardFacility(itemId: number) {
+  const res = discardFacility(itemId)
+  if (res.message) toast.show(res.message)
 }
 </script>
 
@@ -241,6 +247,7 @@ const reformIcons = {
     <div class="factory-fac-head">
       <span class="factory-fac-title">包含设施</span>
       <span class="factory-fac-sum">{{ buildingCount }}个设施</span>
+      <span class="factory-fac-note">右键点击剔除</span>
     </div>
 
     <div class="factory-fac-grid">
@@ -249,6 +256,7 @@ const reformIcons = {
         :key="item.itemId"
         class="factory-fac"
         :title="`${item.name} ×${item.count}`"
+        @contextmenu.prevent="onDiscardFacility(item.itemId)"
       >
         <img v-if="item.icon" class="factory-icon" :src="item.icon" :alt="item.name" />
         <span v-else class="factory-fac-name">{{ item.name }}</span>
@@ -257,28 +265,28 @@ const reformIcons = {
     </div>
 
     <!-- 包含地基（在「包含设施」下面单列一块，只有铺过地基才出现） -->
-    <template v-if="hasFoundation">
+    <template v-if="foundation.总数 > 0">
       <div class="factory-fac-head">
         <span class="factory-fac-title">包含地基</span>
-        <span class="factory-fac-sum">{{ foundationTotal }}个地基</span>
+        <span class="factory-fac-sum">{{ foundation.总数 }}个地基</span>
         <span class="factory-fac-note">暂不支持显示地基</span>
       </div>
       <div class="factory-fac-grid">
         <div
-          v-if="foundationDecal > 0"
+          v-if="foundation.带装饰 > 0"
           class="factory-fac"
-          :title="`带装饰地基 ×${foundationDecal}`"
+          :title="`带装饰地基 ×${foundation.带装饰}`"
         >
           <img class="factory-icon" :src="reformIcons.decal" alt="带装饰地基" />
-          <span class="factory-fac-count">{{ foundationDecal }}</span>
+          <span class="factory-fac-count">{{ foundation.带装饰 }}</span>
         </div>
         <div
-          v-if="foundationUndecal > 0"
+          v-if="foundation.无装饰 > 0"
           class="factory-fac"
-          :title="`无装饰地基 ×${foundationUndecal}`"
+          :title="`无装饰地基 ×${foundation.无装饰}`"
         >
           <img class="factory-icon" :src="reformIcons.undecal" alt="无装饰地基" />
-          <span class="factory-fac-count">{{ foundationUndecal }}</span>
+          <span class="factory-fac-count">{{ foundation.无装饰 }}</span>
         </div>
       </div>
     </template>

@@ -1,19 +1,21 @@
 import { computed, markRaw, reactive, ref, watch } from 'vue'
 import { parseBlueprintString } from '../lib/blueprint/factory/factoryParser.js'
 import { stringifyBlueprint } from '../lib/blueprint/factory/factoryEncoder.js'
-import { itemName, isStation } from '../lib/blueprint/factory/factoryItems.js'
-import { applyBatchRules, syncBeltIcon } from '../lib/factory/batch.js'
+import { isStation, itemName } from '../lib/blueprint/factory/factoryItems.js'
+import { compactBuildings, discardBuildings, syncBeltIcon } from '../lib/factory/batchEdit.js'
 import { ITEM_MODEL } from '../lib/factory/buildingModels.js';
+import { 默认统计设置, 统计蓝图, 计算包含设施, 计算设施数量, 计算包含地基 } from '../lib/factory/stats.js';
 import type { FactoryPreview } from '../lib/factory/FactoryPreview.js'
 import { saveAsText } from '../utils/download'
 
 /** 工厂预览工具的状态 */
 
-/** 设施（按建筑 id 聚合） */
-export interface FactoryFacility {
-  itemId: number
-  name: string
-  count: number
+/** 蓝图统计设置，见 lib/factory/stats.js */
+export interface StatsSettings {
+  /** 是否按增产剂 Mk.III 计算 */
+  使用增产剂: boolean
+  /** 透镜: 0 = 不用, 1209 = 引力透镜, 1211 = 黑雾透镜 */
+  使用透镜: number
 }
 
 /** 蓝图自定义属性 */
@@ -54,6 +56,8 @@ export type FactoryBlueprint = { header: FactoryHeader } & Record<string, any>
 /** 一条批量编辑规则 */
 export interface BatchRule {
   type: string
+  kind: 'replace' | 'action'
+  run: (blueprint: FactoryBlueprint) => boolean
   options: Record<string, any>
 }
 
@@ -72,12 +76,16 @@ export const factory = reactive({
   raw: '',
   /** 主体改过没有 */
   modified: false,
+  /** 蓝图统计结果 */
+  stats: markRaw(统计蓝图(null)),
+  /** 统计设置 */
+  statsSettings: { ...默认统计设置 } satisfies StatsSettings,
 })
 
 /** 「打开蓝图」弹窗 */
 export const showOpenModal = ref(false)
 
-/** 批量编辑，见 lib/factory/batch.js 的规则类型表 */
+/** 批量编辑的规则数组（规则类型表见 FactoryBatchEdit.vue） */
 export const batchRules = ref<BatchRule[]>([])
 
 /** 左侧输入栏的三档: 信息/ 详情/ 批量编辑 */
@@ -124,6 +132,7 @@ function applyBlueprint(blueprint: FactoryBlueprint | null, resetView: boolean =
   const selected = factory.selectedIndex
 
   factory.blueprint = blueprint ? markRaw({ ...blueprint }) : null
+  factory.stats = markRaw(统计蓝图(factory.blueprint))
   preview?.setBlueprint(factory.blueprint, resetView)
 
   if (selected !== null && !resetView) {
@@ -195,34 +204,6 @@ function setBlueprint(parsed: Record<string, any> | null, raw = '') {
   Object.assign(factory.header, copyHeader(factory.blueprint!.header))
 }
 
-/** 按建筑 id 聚合出设施清单 */
-function collectFacilities(): FactoryFacility[] {
-  const buildings = factory.blueprint?.buildings
-  if (!Array.isArray(buildings)) return []
-
-  // 顺序: 按 id 首次出现在建筑数组里的先后，不排序
-  const counts = new Map<number, number>()
-  for (const building of buildings) {
-    const itemId = Number(building?.itemId)
-    if (!Number.isInteger(itemId)) continue
-    counts.set(itemId, (counts.get(itemId) ?? 0) + 1)
-  }
-
-  // 地基也算设施里的一项，但建筑总数只数 buildings；
-  // 它在扫完建筑之后才补进去，所以蓝图里没有地基建筑时排在最后
-  const reformCount = Number(factory.blueprint?.reformData?.reformCount) || 0
-  if (reformCount > 0) counts.set(FOUNDATION_ITEM_ID, (counts.get(FOUNDATION_ITEM_ID) ?? 0) + reformCount)
-
-  return [...counts.entries()].map(([itemId, count]) => ({
-    itemId,
-    name: itemName(itemId),
-    count,
-  }))
-}
-
-/** 地基在设施清单里用的物品 id */
-const FOUNDATION_ITEM_ID = 1131
-
 // ─────────────────────────────────────────────────────────────
 // 派生数据
 // ─────────────────────────────────────────────────────────────
@@ -236,22 +217,12 @@ export const pathText = computed(() => {
   return factory.fileHandle?.name || '导入的蓝图'
 })
 
-/** 包含的设施 */
-export const facilities = computed(() => collectFacilities())
-/** 建筑总数 */
-export const buildingCount = computed(() => {
-  const buildings = factory.blueprint?.buildings
-  return Array.isArray(buildings) ? buildings.length : 0
-})
-
-/** 地基总数 = 所有矩形的 w*h 之和 */
-export const foundationTotal = computed(() => Number(factory.blueprint?.reformData?.reformCount) || 0)
-/** 无装饰地基数 */
-export const foundationUndecal = computed(() => Number(factory.blueprint?.reformData?.undecalReformCount) || 0)
-/** 带装饰地基 = 总数 - 无装饰 */
-export const foundationDecal = computed(() => foundationTotal.value - foundationUndecal.value)
-/** 有地基才显示这一块 */
-export const hasFoundation = computed(() => foundationTotal.value > 0)
+/** 包含的设施（建筑 + 地基） */
+export const facilities = computed(() => 计算包含设施(factory.stats))
+/** 设施数量 */
+export const buildingCount = computed(() => 计算设施数量(factory.stats))
+/** 包含的地基: { 总数, 带装饰, 无装饰 } */
+export const foundation = computed(() => 计算包含地基(factory.stats))
 
 /**
  * 当前选中的建筑:编号对不上蓝图里的建筑就当没选中
@@ -523,6 +494,59 @@ export function editStationType(index: number, dropSlot: number | null = null): 
 }
 
 /**
+ * 剔除一类设施（信息栏里右键图标）
+ *
+ * 同 itemId 的建筑全部打上 -1 墓碑（统计 / 预览都不再算它，导出时由 compactBuildings 压实）；
+ * 1131（地基）不占 buildings，连铺好的地基一起清掉。
+ *
+ * @returns 剔除的数量: 地基按格数算；蓝图没打开 / 这类设施已经没有了 = 0
+ */
+export function discardFacility(itemId: number): { ok: boolean, count: number, message: string } {
+  const blueprint = factory.blueprint
+  if (!blueprint || !Array.isArray(blueprint.buildings)) {
+    return { ok: false, count: 0, message: '当前没有已打开的蓝图' }
+  }
+
+  const id = Number(itemId) || 0
+  // 用界面上显示的数量
+  const count = facilities.value.find((item) => item.id === id)?.数量 ?? 0
+  if (count <= 0) return { ok: false, count: 0, message: '蓝图里没有这项设施' }
+
+  discardBuildings(blueprint, id)
+
+  // 正好删掉的是选中那栋 → 先松开选中，免得预览再去选一座墓碑
+  const selected = factory.selectedIndex
+  if (selected !== null && Number(blueprint.buildings[selected]?.index) < 0) factory.selectedIndex = null
+
+  applyBlueprint(blueprint, false)
+  factory.modified = true
+  return { ok: true, count, message: `已剔除 ${count} 个${itemName(id)}` }
+}
+
+/**
+ * 删除一栋建筑（详情页的「删除建筑」）
+ *
+ * @param index 建筑编号
+ * @returns 找到了并删掉了 true；蓝图没打开 / 编号对不上 false
+ */
+export function deleteBuilding(index: number): boolean {
+  const blueprint = factory.blueprint
+  const buildings = blueprint?.buildings
+  if (!blueprint || !Array.isArray(buildings)) return false
+
+  // 序号就是下标，对不上（坏数据 / 已经删掉的墓碑）就不动手
+  const building = buildings[index]
+  if (!building || Number(building.index) !== index) return false
+
+  buildings[index] = { ...building, index: -1 }
+  factory.selectedIndex = null
+
+  applyBlueprint(blueprint, false)
+  factory.modified = true
+  return true
+}
+
+/**
  * 批量编辑: 把规则数组（batchRules）作用到当前蓝图上
  *
  * @returns ok=false 时 message 说明原因，规则数组保持原样
@@ -536,7 +560,10 @@ export function applyBatchEdit(): {
     return { ok: false, message: '当前没有已打开的蓝图' }
   }
 
-  applyBatchRules(blueprint, batchRules.value)
+  for (const rule of batchRules.value) {
+    if (typeof rule?.run !== 'function') continue
+    rule.run(blueprint)
+  }
 
   // 预览按新数据重摆
   applyBlueprint(blueprint, false)
@@ -575,8 +602,11 @@ async function serialize(): Promise<{ text: string, error: string }> {
   const blueprint = factory.blueprint
   if (!blueprint) return { text: '', error: '当前没有已打开的蓝图' }
   try {
-    // 建筑用纯数据那份，头部用界面那份；不写回 blueprint，「复制」才不会把「已修改」清掉
-    return { text: await stringifyBlueprint({ ...blueprint, header: copyHeader(factory.header) }), error: '' }
+    // 建筑用纯数据那份，头部用界面那份；不写回 blueprint，「复制」才不会把「已修改」清掉。
+    // 导出前把删除留下的 -1 墓碑压实，游戏只认 index 与数组下标一致的蓝图。
+    const exportBlueprint = { ...blueprint, header: copyHeader(factory.header) }
+    compactBuildings(exportBlueprint)
+    return { text: await stringifyBlueprint(exportBlueprint), error: '' }
   } catch (error) {
     return { text: '', error: (error as Error).message }
   }
