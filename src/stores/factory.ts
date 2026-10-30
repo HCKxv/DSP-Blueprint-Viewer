@@ -2,10 +2,12 @@ import { computed, markRaw, reactive, ref, watch } from 'vue'
 import { parseBlueprintString } from '../lib/blueprint/factory/factoryParser.js'
 import { stringifyBlueprint } from '../lib/blueprint/factory/factoryEncoder.js'
 import { isStation, itemName } from '../lib/blueprint/factory/factoryItems.js'
-import { compactBuildings, discardBuildings, syncBeltIcon } from '../lib/factory/batchEdit.js'
+import { compactBuildings, discardBuildings, discardRects, syncBeltIcon } from '../lib/factory/batchEdit.js'
 import { ITEM_MODEL } from '../lib/factory/buildingModels.js';
 import { 默认统计设置, 统计蓝图, 计算包含设施, 计算设施数量, 计算包含地基 } from '../lib/factory/stats.js';
 import type { FactoryPreview } from '../lib/factory/FactoryPreview.js'
+import type { FactoryBlueprint, FactoryHeader } from '../lib/blueprint/factory/factoryTypes'
+import type { BatchRule } from '../lib/factory/batchRules'
 import { saveAsText } from '../utils/download'
 
 /** 工厂预览工具的状态 */
@@ -16,49 +18,6 @@ export interface StatsSettings {
   使用增产剂: boolean
   /** 透镜: 0 = 不用, 1209 = 引力透镜, 1211 = 黑雾透镜 */
   使用透镜: number
-}
-
-/** 蓝图自定义属性 */
-export interface FactoryProperty {
-  /** 属性名 */
-  key: string
-  /** 属性值 */
-  value: string
-}
-
-/** 蓝图头部 */
-export interface FactoryHeader {
-  /** 图标布局（0 / 1 = 不显示图标，取值见 FactoryThumb 的排布表） */
-  layout: number
-  /** 缩略图的 5 个图标位（0 = 空位） */
-  icons: number[]
-  /** 创建时间戳（.NET ticks） */
-  timeTicks: string | null
-  /** 创建时间（由创建时间戳换算） */
-  time: string | null
-  /** 创建版本号 */
-  gameVersion: string
-  /** 缩略图文字 */
-  shortDesc: string
-  /** 作者 */
-  author: string
-  /** 版本 */
-  customVersion: string
-  /** 自定义属性 */
-  properties: FactoryProperty[]
-  /** 蓝图介绍 */
-  desc: string
-}
-
-/** 一份工厂蓝图对象 */
-export type FactoryBlueprint = { header: FactoryHeader } & Record<string, any>
-
-/** 一条批量编辑规则 */
-export interface BatchRule {
-  type: string
-  kind: 'replace' | 'action'
-  run: (blueprint: FactoryBlueprint) => boolean
-  options: Record<string, any>
 }
 
 export const factory = reactive({
@@ -85,7 +44,7 @@ export const factory = reactive({
 /** 「打开蓝图」弹窗 */
 export const showOpenModal = ref(false)
 
-/** 批量编辑的规则数组（规则类型表见 FactoryBatchEdit.vue） */
+/** 批量编辑的规则数组（规则类型表见 lib/factory/batchRules.ts） */
 export const batchRules = ref<BatchRule[]>([])
 
 /** 左侧输入栏的三档: 信息/ 详情/ 批量编辑 */
@@ -521,6 +480,37 @@ export function discardFacility(itemId: number): { ok: boolean, count: number, m
   applyBlueprint(blueprint, false)
   factory.modified = true
   return { ok: true, count, message: `已剔除 ${count} 个${itemName(id)}` }
+}
+
+/** 地基的两类（与 stats.js 的 计算包含地基 一致） */
+export type FoundationKind = 'decal' | 'undecal'
+
+/**
+ * 剔除一类地基（信息栏里右键地基图标）
+ *
+ * 带装饰 = type 1-6，无装饰 = type 7；一块不剩时整个地基段一起清掉。
+ *
+ * @param kind 带装饰 / 无装饰
+ * @returns 剔除的数量: 按格数算；蓝图没打开 / 这类地基已经没有了 = 0
+ */
+export function discardFoundation(kind: FoundationKind): { ok: boolean, count: number, message: string } {
+  const blueprint = factory.blueprint
+  if (!blueprint || !Array.isArray(blueprint.reformData?.rects)) {
+    return { ok: false, count: 0, message: '当前蓝图没有地基' }
+  }
+
+  const undecal = kind === 'undecal'
+  const label = undecal ? '无装饰' : '带装饰'
+  // 用界面上显示的数量
+  const count = undecal ? foundation.value.无装饰 : foundation.value.带装饰
+  if (count <= 0) return { ok: false, count: 0, message: `蓝图里没有${label}地基` }
+
+  const removed = discardRects(blueprint, undecal ? 7 : [1, 2, 3, 4, 5, 6])
+  if (removed <= 0) return { ok: false, count: 0, message: `蓝图里没有${label}地基` }
+
+  applyBlueprint(blueprint, false)
+  factory.modified = true
+  return { ok: true, count: removed, message: `已剔除 ${removed} 个${label}地基` }
 }
 
 /**

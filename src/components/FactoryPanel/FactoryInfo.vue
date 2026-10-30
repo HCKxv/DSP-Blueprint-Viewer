@@ -7,6 +7,7 @@ import {
   buildingCount,
   foundation,
   discardFacility,
+  discardFoundation,
   LIMITS,
 } from '../../stores/factory'
 import { itemIconUrl } from '../../lib/markup/itemIcons'
@@ -110,6 +111,12 @@ const reformIcons = {
 /** 右键设施图标 = 剔除这一类 */
 function onDiscardFacility(itemId: number) {
   const res = discardFacility(itemId)
+  if (res.message) toast.show(res.message)
+}
+
+/** 右键地基图标 = 剔除这一类地基（带装饰 / 无装饰） */
+function onDiscardFoundation(kind: 'decal' | 'undecal') {
+  const res = discardFoundation(kind)
   if (res.message) toast.show(res.message)
 }
 </script>
@@ -269,13 +276,14 @@ function onDiscardFacility(itemId: number) {
       <div class="factory-fac-head">
         <span class="factory-fac-title">包含地基</span>
         <span class="factory-fac-sum">{{ foundation.总数 }}个地基</span>
-        <span class="factory-fac-note">暂不支持显示地基</span>
+        <span class="factory-fac-note">右键点击剔除</span>
       </div>
       <div class="factory-fac-grid">
         <div
           v-if="foundation.带装饰 > 0"
           class="factory-fac"
           :title="`带装饰地基 ×${foundation.带装饰}`"
+          @contextmenu.prevent="onDiscardFoundation('decal')"
         >
           <img class="factory-icon" :src="reformIcons.decal" alt="带装饰地基" />
           <span class="factory-fac-count">{{ foundation.带装饰 }}</span>
@@ -284,6 +292,7 @@ function onDiscardFacility(itemId: number) {
           v-if="foundation.无装饰 > 0"
           class="factory-fac"
           :title="`无装饰地基 ×${foundation.无装饰}`"
+          @contextmenu.prevent="onDiscardFoundation('undecal')"
         >
           <img class="factory-icon" :src="reformIcons.undecal" alt="无装饰地基" />
           <span class="factory-fac-count">{{ foundation.无装饰 }}</span>

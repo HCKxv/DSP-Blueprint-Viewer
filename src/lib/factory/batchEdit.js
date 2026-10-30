@@ -50,9 +50,64 @@ function discardBuildings(blueprint, itemId) {
 }
 
 /**
+ * 剔除地基
+ * @param {object} blueprint 
+ * @param {number|number[]} type 装饰类型: 1-6 = 带装饰，7 = 无装饰；可给数组
+ * @returns {number} 剔除的格数（0 = 没有这一类地基）
+ */
+function discardRects(blueprint, type) {
+  const reform = blueprint?.reformData;
+  const rects = reform?.rects;
+  if (!Array.isArray(rects)) return 0;
+
+  const types = new Set((Array.isArray(type) ? type : [type]).map(Number));
+  const kept = [];
+  let removed = 0;
+  for (const rect of rects) {
+    if (!types.has(Number(rect?.type))) {
+      kept.push(rect);
+      continue;
+    }
+    removed += (Number(rect?.w) || 0) * (Number(rect?.h) || 0);
+  }
+  if (removed === 0) return 0;
+
+  // 一点不剩: 整个地基段去掉（导出时也就不写 reformData）
+  if (kept.length === 0) {
+    blueprint.reformData = null;
+    return removed;
+  }
+
+  reform.rects = kept;
+  // 自定义色的 mask（位 16-31）只留还在用的色号
+  let mask = 0;
+  for (const rect of kept) {
+    const slot = Number(rect?.color) || 0;
+    if (slot >= 16) mask |= 1 << slot;
+  }
+  reform.customReformColorMask = mask >>> 0;
+  return removed;
+}
+
+/**
+ * 修改地基装饰
+ * @param {object} blueprint
+ * @param {number} type
+ */
+function changeRectType(blueprint, type) {
+  const reform = blueprint?.reformData;
+  const rects = reform?.rects;
+  if (!rects) return false;
+
+  for (const rect of rects) rect.type = type || 1;
+  blueprint.reformData = { ...reform, rects };
+  return true;
+}
+
+/**
  * 替换配方
  * @param {object} blueprint 
- * @param {{ from: number, to: number, acceleratorMode: 0 | 1 | null }} options 
+ * @param {{ from: number, to: number, acceleratorMode: -1 | 0 | 1 }} options
  */
 function editRecipe(blueprint, options) {
   if (!blueprint?.buildings) return false;
@@ -61,7 +116,8 @@ function editRecipe(blueprint, options) {
     if (building?.recipeId !== options.from) return;
 
     building.recipeId = options.to;
-    if (options.acceleratorMode !== null && building.parameters) building.parameters.acceleratorMode = options.acceleratorMode;
+    // -1 = 不修改；0 = 额外产出，1 = 生产加速
+    if (options.acceleratorMode !== -1 && building.parameters) building.parameters.acceleratorMode = options.acceleratorMode;
   });
   return true;
 };
@@ -181,4 +237,4 @@ function editAutoOrbit(blueprint) {
   return true;
 }
 
-export { batchUp, compactBuildings, discardBuildings, editAutoOrbit, editFilter, editRecipe, editStationItems, syncBeltIcon };
+export { batchUp, changeRectType, compactBuildings, discardBuildings, discardRects, editAutoOrbit, editFilter, editRecipe, editStationItems, syncBeltIcon };

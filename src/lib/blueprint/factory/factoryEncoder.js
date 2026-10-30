@@ -8,7 +8,6 @@ import { buildExternalFields } from './externalFields.js';
 // 工厂蓝图字符串固定前缀
 const BLUEPRINT_PREFIX = 'BLUEPRINT:';
 
-// 缺失版本号时的兜底版本
 const DEFAULT_GAME_VERSION = '0.10.34.28524';
 
 // 保留 4 位小数

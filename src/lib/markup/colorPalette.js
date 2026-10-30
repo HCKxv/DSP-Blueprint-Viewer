@@ -1,4 +1,4 @@
-/** 游戏内置调色板 */
+/** 游戏内置调色板：256 色 / 168 色文本 / 16 色地基 */
 
 /** 256 色调色板 */
 export const COLOR_PALETTE_256 = [
@@ -69,4 +69,29 @@ export const COLOR_PALETTE_TEXT = [
 /** 按文本色板索引取 CSS 颜色；-1 或越界返回 null（用默认色） */
 export function colorPaletteTextColor(index) {
   return COLOR_PALETTE_TEXT[index] ?? null
+}
+
+/** 地基 16 色色板 */
+export const FOUNDATION_PALETTE = [
+  '#ffffff',
+  '#d9d9d9',
+  '#ff0000',
+  '#ff8000',
+  '#ffff00',
+  '#80ff00',
+  '#00ff00',
+  '#00ff80',
+  '#b2b2b2',
+  '#8c8c8c',
+  '#00ffff',
+  '#0080ff',
+  '#0000ff',
+  '#8000ff',
+  '#ff00ff',
+  '#ff0080',
+]
+
+/** 按地基颜色索引（0-15）取 CSS 颜色；越界返回 null */
+export function foundationColor(index) {
+  return FOUNDATION_PALETTE[Number(index)] ?? null
 }

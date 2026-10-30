@@ -231,6 +231,8 @@ const NO_COLOR = 255;
  * 相邻行的切点表是共用的（见 boundaryCuts），所以矢高不再影响「有没有缝」，
  * 只影响两件事: 涂色层会不会凹到遮挡球里面（涂色层抬高 0.0015，矢高远小于它），
  * 以及球面看起来够不够圆。取 3e-4 时赤道一小段约 3°、极圈约 33°（再被下面的硬上限截住）。
+ *
+ * 调用方可用 options.maxSag 给更小的值（工厂预览把铺地贴到 1.0002，弦必须收得更紧）。
  */
 const MAX_SUBDIV_SAG = 3e-4;
 
@@ -270,10 +272,13 @@ function runBounds(row, x0, x1) {
  *
  * 折线近似纬线时，弦到圆弧的矢高 ≈ R·(1 − cos(Δλ/2))（R = cos 纬度 = 该纬度圈到地轴的半径），
  * 按矢高定步长即可; 另加一个经度硬上限，避免极地扇形（面积误差 1 − sin(Δλ)/Δλ）缺角。
+ *
+ * @param {number} latDeg 纬度（度）
+ * @param {number} [sag] 矢高上限，默认 MAX_SUBDIV_SAG
  */
-function maxLngStep(latDeg) {
+function maxLngStep(latDeg, sag = MAX_SUBDIV_SAG) {
   const ringR = Math.max(1e-6, Math.cos(Math.abs(latDeg) * DEG));
-  const bySag = (2 * Math.asin(Math.min(1, Math.sqrt((2 * MAX_SUBDIV_SAG) / ringR)))) / DEG;
+  const bySag = (2 * Math.asin(Math.min(1, Math.sqrt((2 * sag) / ringR)))) / DEG;
   return Math.min(bySag, MAX_SUBDIV_LNG);
 }
 
@@ -303,14 +308,19 @@ function rowRuns(row, index) {
  * 两侧行都用**同一份**切点表，两行在这条纬线上的折线就完全重合 —— 这是几何严丝合缝的关键:
  * 各算各的会在两条折线之间留下月牙形空洞，空洞在遮挡球内侧、被挡掉深度后露出背景，
  * 就是极地那些细黑线。
+ *
+ * @param {number} latDeg 纬度（度）
+ * @param {Array} runsA 南侧行的颜色分段
+ * @param {Array} runsB 北侧行的颜色分段
+ * @param {number} [sag] 矢高上限（见 maxLngStep）
  */
-function boundaryCuts(latDeg, runsA, runsB) {
+function boundaryCuts(latDeg, runsA, runsB, sag = MAX_SUBDIV_SAG) {
   const set = new Set([-180, 0, 180]);
   for (const run of runsA) { set.add(run.lngLo); set.add(run.lngHi); }
   if (runsB !== runsA) for (const run of runsB) { set.add(run.lngLo); set.add(run.lngHi); }
   const base = [...set].sort((a, b) => a - b);
 
-  const step = maxLngStep(latDeg);
+  const step = maxLngStep(latDeg, sag);
   const out = [base[0]];
   for (let i = 0; i < base.length - 1; i += 1) {
     const a = base[i];
@@ -332,12 +342,14 @@ function boundaryCuts(latDeg, runsA, runsB) {
  * @param {object} grid createPlanetGrid() 的返回值
  * @param {Array<{r:number,g:number,b:number}>} palette 调色板
  * @param {Uint8Array} index 每格色号（255 = 不铺）
+ * @param {{maxSag?:number}} [options] 纬线折线的矢高上限（默认 3e-4）; 涂色层贴得越近要越小
  * @returns {Array<{positions:Float32Array, colors:Float32Array}>|null}
  *   与 paintingGrid.js 的涂色几何同构: colors 每顶点 4 个分量（a = 涂色状态）
  */
-export function buildPlanetPaintGeometry(grid, palette, index) {
+export function buildPlanetPaintGeometry(grid, palette, index, options = {}) {
   if (!grid || !palette?.length || !index) return null;
 
+  const sag = Number(options?.maxSag) > 0 ? Number(options.maxSag) : MAX_SUBDIV_SAG;
   const rows = grid.rows;
   const runsOf = rows.map((row) => rowRuns(row, index));
 
@@ -353,6 +365,7 @@ export function buildPlanetPaintGeometry(grid, palette, index) {
       ordered[i].latHi,
       runsOf[ordered[i].row],
       runsOf[ordered[i + 1].row],
+      sag,
     );
   }
 
@@ -369,7 +382,7 @@ export function buildPlanetPaintGeometry(grid, palette, index) {
     const latHi = row.latHi;
     const runs = runsOf[row.row];
     if (!runs.length) continue;
-    const own = boundaryCuts(latLo, runs, runs);
+    const own = boundaryCuts(latLo, runs, runs, sag);
     // 下边界 = 与南侧邻行共享的那条纬线，上边界 = 与北侧邻行共享的那条
     const bottom = i > 0 ? between[i - 1] : own;
     const top = i + 1 < ordered.length ? between[i] : own;

@@ -11,14 +11,17 @@
  *       触屏: 双指拖动挪观察点 + 双指捏合缩放、单指长按选中建筑（判定在 cameraRig，这里拿落点去拾取）。
  *
  * 用法: init(canvas) / setBlueprint(data, resetView)（null = 清空）/ setGridVisible(visible) /
- *       setLayerVisible('buildings'|'belts'|'inserters'|'icons', visible) / setTargetLatitude(lat, north) /
+ *       setLayerVisible('foundation'|'buildings'|'belts'|'inserters'|'icons', visible) / setTargetLatitude(lat, north) /
  *       setSelectionListener(fn) / selectBuilding(index) / buildingCoord(index) / resetView() / resize() / dispose()
+ *
+ * 图层: 地基（铺地，只上色，默认显示，界面无开关）/ 建筑 / 带子 / 爪子 / 图标
  */
 
 import * as THREE from 'three';
 import { createPlanetGrid, DEFAULT_PLANET_RADIUS } from '../grid/planetGrid.js';
 import {
   buildPlanetGridLines,
+  buildPlanetPaintGeometry,
   PLANET_FINE_GRID_MAX_DISTANCE,
 } from '../grid/planetGridMesh.js';
 import {
@@ -28,6 +31,7 @@ import {
 import { CameraRig, CAMERA_FOV_DEG } from './cameraRig.js';
 import { isAssembler, isBelt, isInserter, isLab } from '../blueprint/factory/factoryItems.js';
 import { layoutBlueprint } from './blueprintLayout.js';
+import { buildFoundationPaint } from './foundationLayout.js';
 import { createStarfield, disposeStarfield, STARFIELD_BG_COLOR } from '../preview/starfield.js';
 import {
   buildingModel, BUILDING_MODELS,
@@ -46,8 +50,14 @@ const LOGISTIC_ROLE_COLORS = { 0: '#9fb0d0', 1: '#5fd3f2', 2: '#ef9a5a' };
 /** 行星球体的经纬分段数（512×256 时面片中心凹陷 1 − cos(π/分段数) ≈ 7.5e-5） */
 const PLANET_SPHERE_SEGMENTS = { width: 512, height: 256 };
 
-/** 网格线相对球面的抬高: 必须大于球面多边形的下陷（见上），否则面片会从线里穿出来 */
-const GRID_RADIUS_SCALE = 1.0001;
+/** 网格线抬高: 高于球面下陷与铺地（1.0002），低于传送带顶面（≈1.0009）和建筑底面（≈1.001） */
+const GRID_RADIUS_SCALE = 1.00015;
+
+/** 铺地抬高: 几乎贴地；按 FOUNDATION_SUBDIV_SAG 收紧细分后最低仍高于球面 */
+const FOUNDATION_RADIUS_SCALE = 1.0001;
+
+/** 铺地几何的矢高上限（buildPlanetPaintGeometry 的 options.maxSag）: 越小越贴地，顶点越多 */
+const FOUNDATION_SUBDIV_SAG = 6e-5;
 
 /** 绘制顺序: 粗线在细线之后（交叉处由粗线压住），回归线最后 */
 const GRID_LINE_RENDER_ORDER = 2;
@@ -59,7 +69,8 @@ const GRID_LINE_MAJOR_OPACITY = 0.3;
 /** 回归线（与赤道）: 比粗线再亮一档 */
 const GRID_LINE_TROPIC_OPACITY = 0.25;
 
-const PLANET_COLOR = 0x39404b;
+/** 行星颜色 */
+const PLANET_COLOR = 0x2e333c;
 
 /** 全息信标（2401）投影默认值（字段见 markerCodec） */
 const HOLOGRAM_DEFAULT_HEIGHT = 12.5;   // 游戏单位
@@ -608,10 +619,10 @@ function positiveOr(value, fallback) {
 }
 
 /**
- * 可独立开关的显示层（预览下方状态行里的一排按钮）
- *   建筑 / 传送带 / 分拣器按建筑归属；图标 = 建筑头顶的图标（物流塔是它的「塔内」物品栏卡片）
+ * 可独立开关的显示层: 地基（铺地，只上色，默认显示，界面无开关，只留 setLayerVisible 接口）/
+ * 建筑 / 传送带 / 分拣器 / 图标（建筑头顶的图标，物流塔是塔内物品栏卡片）
  */
-const LAYERS = ['buildings', 'belts', 'inserters', 'icons'];
+const LAYERS = ['foundation', 'buildings', 'belts', 'inserters', 'icons'];
 
 class FactoryPreview {
   constructor() {
@@ -641,9 +652,14 @@ class FactoryPreview {
     /** 网格线开关（细线还要再按相机距离判断一次） */
     this._gridVisible = true;
     /** 各显示层的开关（见 LAYERS） */
-    this._layers = { buildings: true, belts: true, inserters: true, icons: true };
-    /** 各显示层对应的场景 Group（层与 Group 一一对应，别再加 `_inserters` 之类别名，会失同步） */
-    this._layerGroups = { buildings: null, belts: null, inserters: null, icons: null };
+    this._layers = { foundation: true, buildings: true, belts: true, inserters: true, icons: true };
+    /** 各显示层对应的场景 Group（层与 Group 一一对应，别再加别名，会失同步） */
+    this._layerGroups = {
+      foundation: null, buildings: null, belts: null, inserters: null, icons: null,
+    };
+    /** 地基层缓存: reformData 引用 + 落点签名不变就不重建（大地基一次 100ms+） */
+    this._foundationSource = null;
+    this._foundationPlacement = '';
     /** 建筑全表（下标 = 建筑序号，空位 null；setBlueprint 时摆一次，见 _buildBlueprintObjects） */
     this._allBuildings = [];
     /** 选中的建筑: 只留编号，建筑记录一概不留 */
@@ -786,7 +802,8 @@ class FactoryPreview {
     if (resetView) this._homeView = { ...DEFAULT_HOME_VIEW };   // 归位目标: 没蓝图就是赤道 0° 经线（见 DEFAULT_HOME_VIEW）
     this._blueprint = blueprint ?? null;
     if (!this._scene || !blueprint) {
-      this._selectBuilding(null);                // 蓝图没了，选中也就没了（会通知回调）
+      this._clearFoundation();                   // 蓝图没了，铺地也清掉
+      this._selectBuilding(null);                // 选中也就没了（会通知回调）
       this._applyLayers();
       if (resetView) this._applyHomeView();
       return;
@@ -820,7 +837,7 @@ class FactoryPreview {
   }
 
   /**
-   * 按落点把蓝图摆进场景: 建筑 / 传送带（含连接板条）/ 分拣器 / 图标四层，各一个 Group。
+   * 按落点把蓝图摆进场景: 建筑 / 传送带（含连接板条）/ 分拣器 / 图标 / 地基，各一个 Group。
    *
    * @param {object} layout layoutBlueprint 的结果
    */
@@ -843,6 +860,7 @@ class FactoryPreview {
     this._addBeltLines(split.belts);            // 连接线
     this._addInserters(split.inserters);
     this._addIcons();                           // 图标层: 贴图是异步加载的，摆 sprite 之后就返回
+    this._addFoundation(layout);                // 地基层（铺地）
   }
 
   /**
@@ -1671,8 +1689,8 @@ class FactoryPreview {
     const MARKER_COLOR = 0xffb454;
     /** 标记线长度（场景单位；半径 1 的球面上一个赤道格 ≈ 0.00628） */
     const MARKER_LENGTH = 0.012;
-    /** 起点离地表抬一点: 必须抬过网格线所在的半径，否则会被网格盖住半截 */
-    const MARKER_BASE_LIFT = 0.0003;
+    /** 起点抬高: 要高过网格线与铺地，否则会被盖住半截 */
+    const MARKER_BASE_LIFT = 0.0005;
 
     const group = new THREE.Group();
     group.name = 'factory-markers';
@@ -1695,7 +1713,102 @@ class FactoryPreview {
     this._scene.add(group);
   }
 
-  /** 清掉上一份蓝图的各层、选中高亮与标记 */
+  // ─── 地基（蓝图自带的铺地，只上色）────────────────────────────
+  /** 落点签名: 区域行 / 经度 / 宽高 / 分段数 + 是否转了 180°，用来判断几何能不能复用 */
+  _foundationPlacementKey(layout) {
+    const areas = layout?.areas;
+    if (!Array.isArray(areas) || !areas.length) return '';
+    let key = layout.placement?.rotated ? 'R' : 'N';
+    for (const area of areas) {
+      key += `|${area.rowLo}:${Number(area.startLngDeg).toFixed(4)}:${area.width}:${area.height}:${area.segmentCount}`;
+    }
+    return key;
+  }
+
+  /**
+   * 摆出地基层: layout.reformData 按格上色（不画花纹，无装饰地基不显示）。
+   * 落点与数据都没变时复用上一份几何（只改建筑不重建）。
+   *
+   * @param {object} layout layoutBlueprint 的结果（地基数据跟着它一起带出来）
+   */
+  _addFoundation(layout) {
+    const source = layout?.reformData ?? null;
+    // 落点签名 + 调色板 / 矩形数
+    const placement = [
+      this._foundationPlacementKey(layout),
+      `#${Number(source?.customReformColorMask ?? 0) >>> 0}`,
+      `#${source?.rects?.length ?? 0}`,
+    ].join('');
+
+    if (this._foundationSource === source && this._foundationPlacement === placement) {
+      const existing = this._layerGroups.foundation;
+      if (existing) existing.visible = this._layerVisible('foundation');
+      return;
+    }
+
+    this._clearFoundation();
+    this._foundationSource = source;
+    this._foundationPlacement = placement;
+    if (!source || !this._scene) return;
+
+    const paint = buildFoundationPaint(layout, PLANET_GRID);
+    if (!paint) return;
+    const parts = buildPlanetPaintGeometry(
+      PLANET_GRID,
+      paint.palette,
+      paint.index,
+      { maxSag: FOUNDATION_SUBDIV_SAG },     // 细分收紧，铺地才贴得住地面
+    );
+    if (!parts?.length) return;
+
+    const group = this._layerGroup('foundation');
+    // 顶点色用 rgb（planetGridMesh 已转线性空间；a 位是彩绘的涂色状态，这里不用）
+    for (const part of parts) {
+      const positions = new Float32Array(part.positions.length);
+      for (let i = 0; i < positions.length; i += 3) {
+        positions[i] = part.positions[i] * FOUNDATION_RADIUS_SCALE;
+        positions[i + 1] = part.positions[i + 1] * FOUNDATION_RADIUS_SCALE;
+        positions[i + 2] = -part.positions[i + 2] * FOUNDATION_RADIUS_SCALE;   // 场景 z 取反（与其它层一致）
+      }
+      const colors = new Float32Array((part.colors.length / 4) * 3);
+      for (let i = 0, j = 0; i < part.colors.length; i += 4, j += 3) {
+        colors[j] = part.colors[i];
+        colors[j + 1] = part.colors[i + 1];
+        colors[j + 2] = part.colors[i + 2];
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.92,
+        metalness: 0,
+      }));
+      mesh.name = 'factory-foundation';
+      group.add(mesh);
+    }
+  }
+
+  /** 清掉地基层（几何与材质逐个释放） */
+  _clearFoundation() {
+    this._foundationSource = null;
+    this._foundationPlacement = '';
+    const group = this._layerGroups.foundation;
+    if (!group) return;
+    this._scene?.remove(group);
+    group.traverse((object) => {
+      object.geometry?.dispose();
+      object.material?.dispose();
+    });
+    this._layerGroups.foundation = null;
+    this._needsRender = true;
+  }
+
+  /**
+   * 清掉上一份蓝图的各层、选中高亮与标记。
+   * 不含地基层（见 _clearFoundation）: 只改建筑时要留着复用，换蓝图 / 清空由 setBlueprint 处理。
+   */
   _clearBlueprintObjects() {
     this._clearBuildings();
     this._clearConnectors();
@@ -2429,6 +2542,7 @@ class FactoryPreview {
     this._gridLinesMajor = null;
     this._gridLinesTropic = null;
     this._clearBlueprintObjects();
+    this._clearFoundation();
     for (const texture of Object.values(this._hologramMaps)) texture.dispose();
     this._hologramMaps = {};
     this._planet?.geometry.dispose();

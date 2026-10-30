@@ -1,164 +1,19 @@
 <script setup lang="ts">
 /**
  * 批量编辑
+ *
+ * 规则注册表见 lib/factory/batchRules.ts，图标选择器注册表见 lib/factory/pickerTypes.ts。
  */
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import IconPickerModal from './IconPickerModal.vue'
 import { applyBatchEdit, batchRules } from '../../stores/factory'
-import type { BatchRule, FactoryBlueprint } from '../../stores/factory'
-import { batchUp, editAutoOrbit, editFilter, editRecipe, editStationItems } from '../../lib/factory/batchEdit.js'
-import { recipeCategoriesAll, recipeCategoriesOfType } from '../../lib/markup/recipeCatalog'
-import { recipeName, recipeType } from '../../lib/blueprint/factory/factoryRecipes.js'
-import { itemName } from '../../lib/blueprint/factory/factoryItems.js'
-import { ICON_CATEGORIES } from '../../lib/markup/iconCatalog'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
+import { BATCH_RULE_TYPES, createRule, hasReplace, hintOf, labelOf, ruleTypeOf } from '../../lib/factory/batchRules'
+import type { BatchRule, BatchRuleSelect } from '../../lib/factory/batchRules'
+import { pickerIconUrl, pickerName, pickerTypeOf } from '../../lib/factory/pickerTypes'
 import type { IconCategories, IconRef } from '../../lib/markup/itemIcons'
 import { useToast } from '../../composables/useToast'
 
 const toast = useToast()
-
-/** 一条规则类型: 生成初始 options、把规则作用到蓝图 */
-interface BatchRuleType {
-  id: string
-  kind: 'replace' | 'action'
-  /** 菜单 / 列表里的名字 */
-  label: string
-  /** 规则行里的补充说明 */
-  hint?: string
-  /** 新规则的初始 options */
-  options: () => Record<string, any>
-  /** 把规则作用到蓝图上 */
-  run: (blueprint: FactoryBlueprint, options: Record<string, any>) => boolean
-}
-
-/**
- * 按规则类型生成一条规则
- *
- * run 只接 blueprint；界面上改 rule.options 改的就是闭包捕获的这一份。
- */
-function createRule(type: BatchRuleType): BatchRule {
-  const options = type.options()
-  return {
-    type: type.id,
-    kind: type.kind,
-    run: (blueprint: FactoryBlueprint) => type.run(blueprint, options),
-    options,
-  }
-}
-
-/** 批量编辑的规则类型表 */
-const BATCH_RULE_TYPES: BatchRuleType[] = [
-  {
-    id: 'upgrade',
-    kind: 'replace',
-    label: '升降级建筑',
-    options: () => ({ from: 0, to: 0 }),
-    run: batchUp,
-  },
-  {
-    id: 'recipe',
-    kind: 'replace',
-    label: '替换配方',
-    options: () => ({ from: 0, to: 0, acceleratorMode: null }),
-    run: editRecipe,
-  },
-  {
-    id: 'stationItem',
-    kind: 'replace',
-    label: '修改物流塔物品',
-    options: () => ({ from: 0, to: 0 }),
-    run: editStationItems,
-  },
-  {
-    id: 'filter',
-    kind: 'replace',
-    label: '修改物品过滤',
-    options: () => ({ from: 0, to: 0, target: '分拣器' }),
-    run: editFilter,
-  },
-  {
-    id: 'autoOrbit',
-    kind: 'action',
-    label: '设为自动轨道弹射',
-    hint: '全部电磁轨道弹射器',
-    options: () => ({}),
-    run: editAutoOrbit,
-  },
-]
-
-/** 配方图标 id = 20000 + 配方 id */
-const RECIPE_ICON_BASE = 20000
-
-/** 浮窗标题 */
-const PICKER_NOUN: Record<string, string> = {
-  recipe: '配方',
-  upgrade: '建筑',
-  stationItem: '物品',
-  filter: '物品',
-}
-
-/** 增产模式下拉选项（替换配方用）: 「不修改」= null */
-const ACCELERATOR_OPTIONS: { value: string, label: string }[] = [
-  { value: 'null', label: '不修改' },
-  { value: '0', label: '额外产出' },
-  { value: '1', label: '生产加速' },
-]
-
-/** 下拉当前该显示哪一项 */
-function acceleratorValue(options: Record<string, any>): string {
-  const value = options?.acceleratorMode
-  return value === null || value === undefined ? 'null' : String(value)
-}
-
-/** 选了增产模式: 'null' 记号转回 null，其余转成挡位数字 */
-function onAcceleratorChange(options: Record<string, any>, e: Event) {
-  const raw = (e.target as HTMLSelectElement).value
-  options.acceleratorMode = raw === 'null' ? null : Number(raw)
-}
-
-/** 「类型」下拉的选项（替换物品过滤用，跟 batchEdit.js 的 editFilter 对应） */
-const FILTER_TARGETS = ['全部', '分拣器', '四向', '配送器']
-
-/** 选了要改哪些建筑上的过滤 */
-function onTargetChange(options: Record<string, any>, e: Event) {
-  options.target = (e.target as HTMLSelectElement).value
-}
-
-/** 物流塔物品替换: 物品 + 建筑两类 */
-const ITEM_CATEGORIES: IconCategories = (() => {
-  const out: IconCategories = {}
-  for (const name of ['物品', '建筑']) {
-    const list = ICON_CATEGORIES[name]
-    if (list) out[name] = list
-  }
-  return out
-})()
-
-/** 建筑 id → 浮窗里的一项 */
-function buildingEntry(id: number): IconRef {
-  return { id, name: itemName(id) || `#${id}` }
-}
-
-/** 可升降级的建筑 */
-const UPGRADE_GROUPS = [
-  { label: '传送带', items: [2001, 2002, 2003] },
-  { label: '分拣器', items: [2011, 2012, 2013, 2014] },
-  { label: '熔炉', items: [2302, 2315, 2319] },
-  { label: '化工厂', items: [2309, 2317] },
-  { label: '制造台', items: [2303, 2304, 2305, 2318] },
-  { label: '研究站', items: [2901, 2902] },
-]
-
-/** 这栋建筑属于哪一组可升降级建筑；不在表里给 null */
-function upgradeGroupOf(itemId: unknown) {
-  const id = Number(itemId) || 0
-  return UPGRADE_GROUPS.find((group) => group.items.includes(id)) ?? null
-}
-
-/** 可升降级建筑的浮窗选项 */
-const UPGRADE_CATEGORIES: IconCategories = {
-  可升降级建筑: UPGRADE_GROUPS.flatMap((group) => group.items.map(buildingEntry)),
-}
 
 /** 「添加规则」的下拉框 */
 const addOpen = ref(false)
@@ -167,48 +22,25 @@ const addBox = ref<HTMLElement | null>(null)
 /** 选择浮窗: 给哪条规则的哪个格子选 */
 const picker = reactive({
   open: false,
-  /** 正在改哪条规则的 options（和规则里是同一个对象） */
-  options: null as Record<string, any> | null,
-  /** 规则类型: 决定浮窗里列哪些项 */
+  /** 正在改哪条规则的 values（和规则里是同一个对象） */
+  values: null as Record<string, any> | null,
+  /** 图标选择器类型 id（来自替换选项的 typeId）: 决定浮窗里列哪些项 */
   type: '',
   /** from = 被替换；to = 替换为（只在被替换那一类/组里选） */
   field: 'from' as 'from' | 'to',
   anchor: null as HTMLElement | null,
 })
 
-/** 按 id 取规则类型 */
-function ruleTypeOf(type: string) {
-  return BATCH_RULE_TYPES.find((item) => item.id === type)
+/** 下拉当前选中的下标（值对不上就给第一项） */
+function selectIndex(rule: BatchRule, select: BatchRuleSelect): number {
+  const index = select.items.findIndex((item) => Object.is(item.value, rule.values[select.field]))
+  return index >= 0 ? index : 0
 }
 
-/** 规则类型的中文名 */
-function labelOf(type: string): string {
-  return ruleTypeOf(type)?.label ?? type
-}
-
-/** 是不是「被替换 → 替换为」两格的规则 */
-function isReplaceRule(kind: string): boolean {
-  return kind === 'replace'
-}
-
-/** 规则行里的补充说明 */
-function hintOf(type: string): string {
-  return ruleTypeOf(type)?.hint ?? ''
-}
-
-/** 格子里的图标地址: 配方图标 id = 20000 + 配方 id，物品 / 建筑直接用 id；0（没选）给空串 */
-function slotIcon(type: string, id: unknown): string {
-  const value = Number(id) || 0
-  if (value <= 0) return ''
-  return itemIconUrl(type === 'recipe' ? RECIPE_ICON_BASE + value : value)
-}
-
-/** 格子里的名字: 现在只用作图片的 alt */
-function slotText(type: string, id: unknown): string {
-  const value = Number(id) || 0
-  if (value <= 0) return ''
-  if (type === 'recipe') return recipeName(value) || `未知配方_${value}`
-  return itemName(value) || `未知物品_${value}`
+/** 选了某个下拉项: 按存下来的 value 写回 values，数字 / null 等原始类型不变 */
+function onSelectChange(rule: BatchRule, select: BatchRuleSelect, e: Event) {
+  const item = select.items[(e.target as HTMLSelectElement).selectedIndex]
+  if (item) rule.values[select.field] = item.value
 }
 
 // ── 规则数组 ──────────────────────────────────────────────
@@ -224,7 +56,7 @@ function addRule(typeId: string) {
 function removeRule(index: number) {
   const rule = batchRules.value[index]
   if (!rule) return
-  if (picker.options === rule.options) closePicker()
+  if (picker.values === rule.values) closePicker()
   batchRules.value.splice(index, 1)
 }
 
@@ -242,74 +74,57 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
 
 // ── 选择浮窗 ──────────────────────────────────────────────
 
-/** 关掉浮窗，顺便松开对 options 的引用 */
+/** 关掉浮窗，顺便松开对 values 的引用 */
 function closePicker() {
   picker.open = false
-  picker.options = null
+  picker.values = null
 }
 
-function openPicker(rule: BatchRule, field: 'from' | 'to', e: MouseEvent) {
-  // action 规则没有格子，不该走到这儿
-  if (!isReplaceRule(rule.kind)) return
-  // 「替换为」要先有「被替换」: 不知道类型就不知道该列哪些配方
-  if (field === 'to' && !(Number(rule.options.from) > 0)) return
-  picker.options = rule.options
-  picker.type = rule.type
+function openPicker(rule: BatchRule, pickerType: string, field: 'from' | 'to', e: MouseEvent) {
+  // 「替换为」要先有「被替换」: 不知道类型就不知道该列哪些项
+  if (field === 'to' && !(Number(rule.values.from) > 0)) return
+  picker.values = rule.values
+  picker.type = pickerType
   picker.field = field
   picker.anchor = e.currentTarget as HTMLElement
   picker.open = true
 }
 
-/** 浮窗里列哪些项: 按规则类型和当前格子定 */
+/** 浮窗里列哪些项: 按注册的图标选择器类型和当前格子定 */
 const pickerCategories = computed<IconCategories>(() => {
-  const options = picker.options
-  if (!options) return {}
-
-  if (picker.type === 'recipe') {
-    // 被替换 = 全量配方；替换为 = 被替换那个配方所属类型里的配方
-    if (picker.field === 'from') return recipeCategoriesAll()
-    return recipeCategoriesOfType(recipeType(Number(options.from) || 0))
-  }
-
-  if (picker.type === 'upgrade') {
-    // 被替换 = 全部可升降级建筑；替换为 = 同组里的建筑（都放一个分类，不显示分类按钮）
-    if (picker.field === 'from') return UPGRADE_CATEGORIES
-    const group = upgradeGroupOf(options.from)
-    return group ? { 可升降级建筑: group.items.map(buildingEntry) } : {}
-  }
-
-  // 物流塔物品替换: 物品 + 建筑
-  return ITEM_CATEGORIES
+  const values = picker.values
+  const pickerType = pickerTypeOf(picker.type)
+  if (!values || !pickerType) return {}
+  return pickerType.categories(values, picker.field)
 })
 
-/** 浮窗标题: 选择 + 这一类东西的名字 */
-const pickerTitle = computed(() => `选择${PICKER_NOUN[picker.type] ?? ''}`)
+/** 浮窗标题: 选择 + 注册的名词 */
+const pickerTitle = computed(() => `选择${pickerTypeOf(picker.type)?.noun ?? ''}`)
 
-/** 当前这一格上的图标 id（高亮用）: 配方要加 20000 的基数，物品 / 建筑就是 id 本身 */
+/** 当前这一格上的图标 id（高亮用）: 交给注册的图标选择器类型换算 */
 const pickerCurrent = computed(() => {
-  const id = Number(picker.options?.[picker.field]) || 0
-  if (!id) return 0
-  return picker.type === 'recipe' ? RECIPE_ICON_BASE + id : id
+  const pickerType = pickerTypeOf(picker.type)
+  const value = Number(picker.values?.[picker.field]) || 0
+  if (!pickerType || value <= 0) return 0
+  return pickerType.iconId(value)
 })
 
 /** 「替换为」这一格还合不合法（换了被替换之后） */
 function toStillValid(type: string, from: unknown, to: number): boolean {
-  if (type === 'recipe') return recipeType(to) === recipeType(Number(from) || 0)
-  if (type === 'upgrade') return !!upgradeGroupOf(from)?.items.includes(to)
-  return true // 物流塔物品替换: 物品 / 建筑都能换，不受被替换限制
+  return pickerTypeOf(type)?.toValid?.(from, to) ?? true
 }
 
 function onPick(icon: IconRef) {
-  const options = picker.options
-  if (!options) return
-  // 配方取 recipeId，物品 / 建筑取图标 id（= 物品 id）
-  const value = picker.type === 'recipe' ? Number(icon?.recipeId) || 0 : Number(icon?.id) || 0
+  const values = picker.values
+  const pickerType = pickerTypeOf(picker.type)
+  if (!values || !pickerType) return
+  const value = pickerType.valueOf(icon)
   if (!value) return
 
-  options[picker.field] = value
+  values[picker.field] = value
   // 换了「被替换」就换了可选项，原来的「替换为」可能已经不在里头 → 清掉重选
-  const to = Number(options.to) || 0
-  if (picker.field === 'from' && to > 0 && !toStillValid(picker.type, options.from, to)) options.to = 0
+  const to = Number(values.to) || 0
+  if (picker.field === 'from' && to > 0 && !toStillValid(picker.type, values.from, to)) values.to = 0
 
   closePicker()
 }
@@ -330,82 +145,79 @@ function onConfirm() {
 
 <template>
   <div class="factory-batch">
-    <!-- 规则数组: replace 规则是两格「被替换 → 替换为」；action 规则没有格子，只写作用范围 -->
+    <!-- 规则数组: 按 createRule 编译进来的选项（替换 / 下拉）画 -->
     <div v-if="batchRules.length" class="factory-batch-list">
       <div v-for="(rule, index) in batchRules" :key="index" class="factory-batch-rule">
         <span class="factory-batch-label">{{ labelOf(rule.type) }}：</span>
 
-        <template v-if="isReplaceRule(rule.kind)">
-          <button
-            class="factory-batch-slot"
-            type="button"
-            @click="openPicker(rule, 'from', $event)"
-          >
-            <img
-              v-if="rule.options.from"
-              class="factory-icon"
-              :src="slotIcon(rule.type, rule.options.from)"
-              :alt="slotText(rule.type, rule.options.from)"
-            />
-            <!-- 没选: 空方框 + 加号 -->
-            <svg v-else viewBox="0 0 16 16">
-              <path d="M8 3.4v9.2" />
-              <path d="M3.4 8h9.2" />
-            </svg>
-          </button>
-
-          <span class="factory-batch-arrow">
-            <svg viewBox="0 0 16 16">
-              <path d="M2.8 8h10.2" />
-              <path d="M9.4 4.4 13 8l-3.6 3.6" />
-            </svg>
-          </span>
-
-          <button
-            class="factory-batch-slot"
-            type="button"
-            :disabled="!rule.options.from"
-            @click="openPicker(rule, 'to', $event)"
-          >
-            <img
-              v-if="rule.options.to"
-              class="factory-icon"
-              :src="slotIcon(rule.type, rule.options.to)"
-              :alt="slotText(rule.type, rule.options.to)"
-            />
-            <svg v-else viewBox="0 0 16 16">
-              <path d="M8 3.4v9.2" />
-              <path d="M3.4 8h9.2" />
-            </svg>
-          </button>
-
-          <!-- 替换配方: 增产模式（不替换 = null） -->
-          <template v-if="rule.type === 'recipe'">
-            <span class="factory-batch-label factory-batch-accel">增产模式</span>
-            <select
-              class="factory-batch-select"
-              :value="acceleratorValue(rule.options)"
-              @change="onAcceleratorChange(rule.options, $event)"
+        <template v-for="(option, optionIndex) in rule.options" :key="optionIndex">
+          <!-- 选项类型: 替换（两格图标） -->
+          <template v-if="option.kind === 'replace'">
+            <button
+              class="factory-batch-slot"
+              type="button"
+              @click="openPicker(rule, option.typeId, 'from', $event)"
             >
-              <option v-for="opt in ACCELERATOR_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
+              <img
+                v-if="rule.values.from"
+                class="factory-icon"
+                :src="pickerIconUrl(option.typeId, rule.values.from)"
+                :alt="pickerName(option.typeId, rule.values.from)"
+              />
+              <!-- 没选: 空方框 + 加号 -->
+              <svg v-else viewBox="0 0 16 16">
+                <path d="M8 3.4v9.2" />
+                <path d="M3.4 8h9.2" />
+              </svg>
+            </button>
+
+            <span class="factory-batch-arrow">
+              <svg viewBox="0 0 16 16">
+                <path d="M2.8 8h10.2" />
+                <path d="M9.4 4.4 13 8l-3.6 3.6" />
+              </svg>
+            </span>
+
+            <button
+              class="factory-batch-slot"
+              type="button"
+              :disabled="!rule.values.from"
+              @click="openPicker(rule, option.typeId, 'to', $event)"
+            >
+              <img
+                v-if="rule.values.to"
+                class="factory-icon"
+                :src="pickerIconUrl(option.typeId, rule.values.to)"
+                :alt="pickerName(option.typeId, rule.values.to)"
+              />
+              <svg v-else viewBox="0 0 16 16">
+                <path d="M8 3.4v9.2" />
+                <path d="M3.4 8h9.2" />
+              </svg>
+            </button>
           </template>
 
-          <!-- 替换物品过滤: 类型（改哪些建筑上的过滤） -->
-          <template v-if="rule.type === 'filter'">
-            <span class="factory-batch-label factory-batch-accel">类型</span>
+          <!-- 选项类型: 下拉 -->
+          <template v-else>
+            <span v-if="option.label" class="factory-batch-label factory-batch-accel">
+              {{ option.label }}
+            </span>
             <select
               class="factory-batch-select"
-              :value="rule.options.target"
-              @change="onTargetChange(rule.options, $event)"
+              :value="selectIndex(rule, option)"
+              @change="onSelectChange(rule, option, $event)"
             >
-              <option v-for="name in FILTER_TARGETS" :key="name" :value="name">{{ name }}</option>
+              <option
+                v-for="(item, itemIndex) in option.items"
+                :key="itemIndex"
+                :value="itemIndex"
+              >{{ item.label }}</option>
             </select>
           </template>
         </template>
 
-        <!-- 没有格子的规则: 显示规则表里的补充说明 -->
-        <span v-else class="factory-batch-hint">{{ hintOf(rule.type) }}</span>
+        <!-- 一个选项都没有: 显示规则表里的补充说明 -->
+        <span v-if="!rule.options.length" class="factory-batch-hint">{{ hintOf(rule.type) }}</span>
 
         <button
           class="factory-batch-remove"
@@ -420,8 +232,8 @@ function onConfirm() {
       </div>
     </div>
 
-    <!-- 添加规则: 跟规则项同尺寸的一整行，点开类型下拉；满 6 条就不显示 -->
-    <div v-if="batchRules.length < 6" ref="addBox" class="factory-batch-add">
+    <!-- 添加规则: 跟规则项同尺寸的一整行，点开类型下拉；满 9 条就不显示 -->
+    <div v-if="batchRules.length < 9" ref="addBox" class="factory-batch-add">
       <button class="factory-batch-rule factory-batch-plus" type="button" @click="addOpen = !addOpen">
         <svg viewBox="0 0 16 16">
           <path d="M8 3.4v9.2" />
@@ -445,7 +257,7 @@ function onConfirm() {
         class="btn-sm factory-batch-confirm"
         type="button"
         :disabled="!batchRules.length
-          || batchRules.some((rule) => isReplaceRule(rule.kind) && (!rule.options.from || !rule.options.to))"
+          || batchRules.some((rule) => hasReplace(rule) && (!rule.values.from || !rule.values.to))"
         @click="onConfirm"
       >确认</button>
     </div>

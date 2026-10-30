@@ -264,15 +264,18 @@ function preferLayout(candidate, current, target = null) {
  *   单独给是为了「北 0°」和「南 0°」能区分开 —— 纬度 0 时正负号表达不了半球。
  *   单区域蓝图只用纬度（区域中心摆在目标纬线上）。
  * @param {number} [options.radius] 行星半径（默认 200，游戏里可铺地基的行星都是这个）
- * @returns {{areas: Array<object>, buildings: Array<object|null>, placement: object|null, focus: object}}
+ * @returns {{areas: Array<object>, buildings: Array<object|null>, placement: object|null,
+ *   focus: object, reformData: object|null}}
  *
  * 多区域蓝图会算两遍 —— 原样和旋转 180° —— 再按同一套偏好挑一份（游戏里也是自动在 0°/180° 之间切）。
  *
  * buildings 是**稀疏数组**: 下标就是建筑序号（building.index），落不了位的留 null，
+ * reformData 是蓝图自带的地基数据（原样带出来，地基预览直接用它，不用再回读蓝图）。
  */
 export function layoutBlueprint(blueprint, options = {}) {
   const targetLatDeg = Number.isFinite(options?.targetLatDeg) ? options.targetLatDeg : null;
   const segment = planetGridSegment(options?.radius ?? DEFAULT_PLANET_RADIUS);
+  const reformData = blueprint?.reformData ?? null;
   const target = targetLatDeg === null ? null : {
     row: targetLatDeg / (latitudeRadPerGrid(segment) * RAD_TO_DEG),
     north: typeof options?.targetNorth === 'boolean' ? options.targetNorth : targetLatDeg >= 0,
@@ -287,6 +290,7 @@ export function layoutBlueprint(blueprint, options = {}) {
       buildings: [],
       placement: null,
       focus: computeFocus([], [], 0, latitudeRadPerGrid(segment) * RAD_TO_DEG),
+      reformData,
     };
   }
   const rotated = areas.length < 2 ? null : solvePlacement(blueprint, { ...options, yaw180: true });
@@ -294,7 +298,7 @@ export function layoutBlueprint(blueprint, options = {}) {
   const chosen = useRotated ? rotated : original;
   if (chosen.placement) chosen.placement.rotated = useRotated;
   const { buildings, focus } = emitBuildings(blueprint, chosen);
-  return { areas: chosen.areas, buildings, placement: chosen.placement, focus };
+  return { areas: chosen.areas, buildings, placement: chosen.placement, focus, reformData };
 }
 
 /**
