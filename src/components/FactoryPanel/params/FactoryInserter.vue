@@ -15,10 +15,6 @@ defineProps<{
   filterId: number
   /** 物品图标（「物品」+「建筑」两类） */
   itemIcons: IconCategories
-  /** 输入端连接到的建筑 */
-  input?: { index: number, itemId: number } | null
-  /** 输出端连接到的建筑 */
-  output?: { index: number, itemId: number } | null
 }>()
 
 const emit = defineEmits<{ 'update:filter-id': [number] }>()
@@ -68,35 +64,6 @@ function onClear() {
       <span class="factory-selection-value">{{ length }} 格</span>
     </div>
 
-    <div class="factory-selection-row factory-selection-param factory-inserter-connection">
-      <span class="factory-selection-label">连接：</span>
-      <span class="factory-inserter-end">
-        <template v-if="input">
-          <span class="factory-inserter-index">#{{ input.index }}</span>
-          <img
-            class="factory-icon factory-inserter-icon"
-            :src="itemIconUrl(input.itemId)"
-            :alt="itemName(input.itemId)"
-          />
-          <span class="factory-inserter-name">{{ itemName(input.itemId) }}</span>
-        </template>
-        <span v-else class="factory-inserter-none">---</span>
-      </span>
-      <span class="factory-inserter-arrow">→</span>
-      <span class="factory-inserter-end">
-        <template v-if="output">
-          <span class="factory-inserter-index">#{{ output.index }}</span>
-          <img
-            class="factory-icon factory-inserter-icon"
-            :src="itemIconUrl(output.itemId)"
-            :alt="itemName(output.itemId)"
-          />
-          <span class="factory-inserter-name">{{ itemName(output.itemId) }}</span>
-        </template>
-        <span v-else class="factory-inserter-none">---</span>
-      </span>
-    </div>
-
     <IconPickerModal
       :open="picker"
       :categories="itemIcons"
@@ -112,49 +79,6 @@ function onClear() {
 <style scoped>
 /* .factory-selection-* 那套参数行是共用件（在 styles/shared.css 里）：
    它们挂在父组件 FactorySelection 的模板结构下，写成本组件的 scoped 会失效 */
-
-/* 输入端 → 输出端 */
-.factory-inserter-connection {
-  flex-wrap: wrap;
-  row-gap: 4px;
-}
-
-.factory-inserter-end {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-  gap: 4px;
-}
-
-.factory-inserter-index {
-  flex-shrink: 0;
-  color: #8fa3c8;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.factory-inserter-icon {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-}
-
-.factory-inserter-name {
-  min-width: 0;
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.factory-inserter-arrow {
-  flex-shrink: 0;
-  color: #8fa3c8;
-}
-
-.factory-inserter-none {
-  color: #8fa3c8;
-}
 
 /* 点图标选（跟运输站物品栏那个大图标同一副长相，小一号） */
 .factory-inserter-filter {

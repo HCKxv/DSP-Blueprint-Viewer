@@ -48,6 +48,16 @@ function snappedRowOf(latDeg, segment) {
   return roundAwayFromZero(latDeg / (latitudeRadPerGrid(segment) * RAD_TO_DEG));
 }
 
+/** 经纬度 + 离地高度 → 网格坐标（格） */
+function gridCoordAt(latDeg, lngDeg, altitudeSteps, segment) {
+  return {
+    x: (((lngDeg + 180) % 360 + 360) % 360 - 180)
+      / (longitudeRadPerGrid(snappedRowOf(latDeg, segment), segment) * RAD_TO_DEG),
+    y: latDeg / (latitudeRadPerGrid(segment) * RAD_TO_DEG),
+    z: Number.isFinite(altitudeSteps) ? altitudeSteps : 0,
+  };
+}
+
 /** 这段纬度跨了几档（游戏 GetAreaCount）: >1 就是非法跨越回归线 */
 function areaCountOfLatRange(latRadA, latRadB, segment) {
   const latPerGrid = latitudeRadPerGrid(segment);
@@ -457,6 +467,7 @@ function emitBuildings(blueprint, placement) {
     /** 第二个端点（蓝图里第二个 localOffset）: 分拣器爪臂伸到的那一格，其余建筑与第一个端点相同 */
     const offset2 = building?.localOffset?.[1] ?? offset;
     const endLatDeg = Math.min(90, Math.max(-90, (anchorRows[areaIndex] + num3 * offset2.y) * latPerGridDeg));
+    const endLngDeg = (anchorLngs[areaIndex] + num2 * offset2.x * anchorCells[areaIndex]) * RAD_TO_DEG;
     outBuildings[building.index] = {
       itemId: building.itemId,
       areaIndex,
@@ -491,7 +502,7 @@ function emitBuildings(blueprint, placement) {
       tilt2Deg: Number(building?.tilt2 ?? 0),
       /** 第二个端点的经纬度与高度（分拣器的爪臂末端）；其余建筑与第一个端点相同 */
       endLatDeg,
-      endLngDeg: (anchorLngs[areaIndex] + num2 * offset2.x * anchorCells[areaIndex]) * RAD_TO_DEG,
+      endLngDeg,
       endAltitudeSteps: Number.isFinite(offset2.z) ? offset2.z : 0,
       /**
        * 离地高度，单位是蓝图里的「高度格」（游戏 PlanetGrid.kAltGrid = 4/3 游戏单位）:
@@ -499,12 +510,9 @@ function emitBuildings(blueprint, placement) {
        */
       altitudeSteps: Number.isFinite(offset.z) ? offset.z : 0,
       /** 建筑的网格坐标（格） */
-      coord: {
-        x: (((lngDeg + 180) % 360 + 360) % 360 - 180)
-          / (longitudeRadPerGrid(snappedRowOf(latDeg, segment), segment) * RAD_TO_DEG),
-        y: latDeg / (latitudeRadPerGrid(segment) * RAD_TO_DEG),
-        z: offset.z,
-      },
+      coord: gridCoordAt(latDeg, lngDeg, offset.z, segment),
+      /** 第二个端点的网格坐标（格）: 分拣器 = 爪臂末端，其余建筑与 coord 相同 */
+      endCoord: gridCoordAt(endLatDeg, endLngDeg, offset2.z, segment),
     };
   }
 

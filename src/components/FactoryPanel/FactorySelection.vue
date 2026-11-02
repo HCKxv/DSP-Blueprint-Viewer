@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /** 详情: 预览里点中的那栋建筑 */
 import { computed, reactive, ref, watch } from 'vue'
-import { deleteBuilding, editBuilding, editLabGroup, editStationType, factory, linkedLabBuildings, selectedBuilding, selectedBuildingCoord } from '../../stores/factory'
+import { deleteBuilding, editBuilding, editLabGroup, editStationType, factory, linkedLabBuildings, reverseInserter, selectedBuilding, selectedBuildingCoord, selectedBuildingEndCoord } from '../../stores/factory'
 import { isAssembler, isBelt, isInserter, isLab, isStation, isTurret, itemName } from '../../lib/blueprint/factory/factoryItems.js'
 import { cloneData } from '../../lib/blueprint/clonePlain.js'
 import { itemIconUrl } from '../../lib/markup/itemIcons'
@@ -34,17 +34,60 @@ const name = computed(() => (selectedBuilding.value ? itemName(selectedBuilding.
 
 /** 网格坐标（格） */
 const coord = computed(() => selectedBuildingCoord.value)
+/** 分拣器的第 2 组坐标（格）: 爪臂末端；其余建筑不显示 */
+const endCoord = computed(() => (isInserter(selectedBuilding.value?.itemId)
+  ? selectedBuildingEndCoord.value
+  : null))
 /** 原始坐标 */
 const localCoord = computed(() => {
   const building = selectedBuilding.value
   if (!building) return null
   const offset = building?.localOffset?.[0]
+  if (!offset) return null
   return {
     area: building?.areaIndex,
     x: offset.x,
     y: offset.y,
     z: offset.z,
   }
+})
+/** 原始坐标的第 2 组（分拣器 = 爪臂末端） */
+const localCoordEnd = computed(() => {
+  const building = selectedBuilding.value
+  if (!building) return null
+  const offset = building?.localOffset?.[1] ?? building?.localOffset?.[0]
+  if (!offset) return null
+  return {
+    area: building?.areaIndex,
+    x: offset.x,
+    y: offset.y,
+    z: offset.z,
+  }
+})
+
+/** 问号提示里的原始坐标 */
+function rawHint(point: { area?: number, x: number, y: number, z: number } | null) {
+  return point ? `区域${point.area}：x=${point.x}, y=${point.y}, z=${point.z}` : ''
+}
+
+/** 头部坐标行: 分拣器两组（抓取端 / 放下端），其余建筑只有一组 */
+const coordRows = computed(() => {
+  const first = coord.value
+  if (!first) return []
+  const inserter = isInserter(selectedBuilding.value?.itemId)
+  const rows = [{
+    label: inserter ? '抓取端' : '位置',
+    coord: first,
+    hint: rawHint(localCoord.value),
+  }]
+  if (inserter && endCoord.value) {
+    rows.push({
+      label: '放下端',
+      coord: endCoord.value,
+      hint: rawHint(localCoordEnd.value),
+    })
+  }
+  return rows
 })
 
 /** 坐标数值 */
@@ -154,6 +197,14 @@ function onDeleteBuilding() {
   toast.show(`已删除 #${index} ${label}`)
 }
 
+/** 反转分拣器: 交换抓取端和放下端（立即生效） */
+function onReverseInserter() {
+  const building = selectedBuilding.value
+  if (!building) return
+  const ok = reverseInserter(Number(building.index))
+  toast.show(ok ? '已反转分拣器' : '反转失败：没找到该分拣器')
+}
+
 // 换选中建筑时清空暂存和提示
 watch(() => selectedBuilding.value?.index, () => {
   resetStaged()
@@ -171,19 +222,24 @@ watch(() => selectedBuilding.value?.index, () => {
         <span class="factory-selection-name">{{ name }}</span>
       </div>
       <span v-if="labCount > 1" class="factory-selection-group">×{{ labCount }}</span>
-      <span v-if="coord" class="factory-selection-coord">
-        <span>位置 ({{ num(coord.x) }}, {{ num(coord.y) }})</span>
-        <span>高 {{ num(coord.z) }}</span>
-        <span class="factory-selection-coord-hint"
-          :title= "`区域${localCoord.area}：x=${localCoord.x}, y=${localCoord.y}, z=${localCoord.z}`">
-          <svg viewBox="0 0 16 16">
-            <circle cx="8" cy="8" r="6.8" />
-            <path
-              class="factory-selection-coord-hint-mark"
-              d="M6.1 6A2 2 0 0 1 9.99 6.67c0 1.33-2 2-2 2"
-            />
-            <circle class="factory-selection-coord-hint-dot" cx="8" cy="11.4" r="0.88" />
-          </svg>
+      <span v-if="coordRows.length" class="factory-selection-coord">
+        <span
+          v-for="row in coordRows"
+          :key="row.label"
+          class="factory-selection-coord-line"
+        >
+          <span>{{ row.label }} ({{ num(row.coord.x) }}, {{ num(row.coord.y) }})</span>
+          <span>高 {{ num(row.coord.z) }}</span>
+          <span class="factory-selection-coord-hint" :title="row.hint">
+            <svg viewBox="0 0 16 16">
+              <circle cx="8" cy="8" r="6.8" />
+              <path
+                class="factory-selection-coord-hint-mark"
+                d="M6.1 6A2 2 0 0 1 9.99 6.67c0 1.33-2 2-2 2"
+              />
+              <circle class="factory-selection-coord-hint-dot" cx="8" cy="11.4" r="0.88" />
+            </svg>
+          </span>
         </span>
       </span>
     </div>
@@ -211,6 +267,43 @@ watch(() => selectedBuilding.value?.index, () => {
           >槽位{{ Number(i)+1 }}-{{ row.itemId > 0 ?itemName(row.itemId) :'无' }}</option>
         </select>
       </template>
+    </div>
+
+    <!-- 分拣器连接 -->
+    <div
+      v-if="isInserter(selectedBuilding.itemId)"
+      class="factory-selection-param factory-selection-row factory-inserter-connection"
+    >
+      <span class="factory-inserter-end">
+        <template v-if="inserterConnection.input">
+          <span class="factory-inserter-index">#{{ inserterConnection.input.index }}</span>
+          <img
+            class="factory-icon factory-inserter-icon"
+            :src="itemIconUrl(inserterConnection.input.itemId)"
+            :alt="itemName(inserterConnection.input.itemId)"
+          />
+          <span class="factory-inserter-name">{{ itemName(inserterConnection.input.itemId) }}</span>
+        </template>
+        <span v-else class="factory-inserter-none">---</span>
+      </span>
+      <span class="factory-inserter-arrow">→</span>
+      <span class="factory-inserter-end">
+        <template v-if="inserterConnection.output">
+          <span class="factory-inserter-index">#{{ inserterConnection.output.index }}</span>
+          <img
+            class="factory-icon factory-inserter-icon"
+            :src="itemIconUrl(inserterConnection.output.itemId)"
+            :alt="itemName(inserterConnection.output.itemId)"
+          />
+          <span class="factory-inserter-name">{{ itemName(inserterConnection.output.itemId) }}</span>
+        </template>
+        <span v-else class="factory-inserter-none">---</span>
+      </span>
+      <button
+        class="btn-sm btn-ghost factory-inserter-reverse"
+        type="button"
+        @click="onReverseInserter"
+      >反转</button>
     </div>
 
     <div class="factory-selection-divider" />
@@ -242,8 +335,6 @@ watch(() => selectedBuilding.value?.index, () => {
       :length="Number(parameters?.length ?? 0)"
       :filter-id="Number(staged.filterId ?? selectedBuilding.filterId ?? 0)"
       :item-icons="itemIcons"
-      :input="inserterConnection.input"
-      :output="inserterConnection.output"
       @update:filter-id="(v) => (staged.filterId = v)"
     />
 
@@ -412,12 +503,21 @@ watch(() => selectedBuilding.value?.index, () => {
 /* 贴行尾；等宽数字，换建筑时不左右抖 */
 .factory-selection-coord {
   display: inline-flex;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
   margin-left: auto;
   flex-shrink: 0;
   font-size: 11px;
   color: #8fa3c8;
   font-variant-numeric: tabular-nums;
+}
+
+/* 一行坐标: 位置 + 高 + 问号 */
+.factory-selection-coord-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 问号提示 */
@@ -455,6 +555,55 @@ watch(() => selectedBuilding.value?.index, () => {
   font-size: 11px;
   color: #6f8ec0;
   font-variant-numeric: tabular-nums;
+}
+
+/* 分拣器连接 */
+.factory-inserter-connection {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.factory-inserter-end {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  gap: 4px;
+}
+
+.factory-inserter-index {
+  flex-shrink: 0;
+  color: #8fa3c8;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.factory-inserter-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.factory-inserter-name {
+  min-width: 0;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.factory-inserter-arrow {
+  flex-shrink: 0;
+  color: #8fa3c8;
+}
+
+.factory-inserter-none {
+  color: #8fa3c8;
+}
+
+/* 反转: 交换抓取端 / 放下端 */
+.factory-inserter-reverse {
+  flex-shrink: 0;
+  margin-left: 2px;
 }
 
 .factory-selection-actions {

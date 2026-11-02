@@ -1,7 +1,7 @@
 import { computed, markRaw, reactive, ref, watch } from 'vue'
 import { parseBlueprintString } from '../lib/blueprint/factory/factoryParser.js'
 import { stringifyBlueprint } from '../lib/blueprint/factory/factoryEncoder.js'
-import { isStation, itemName } from '../lib/blueprint/factory/factoryItems.js'
+import { isInserter, isStation, itemName } from '../lib/blueprint/factory/factoryItems.js'
 import { compactBuildings, discardBuildings, discardRects, syncBeltIcon } from '../lib/factory/batchEdit.js'
 import { ITEM_MODEL } from '../lib/factory/buildingModels.js';
 import { 默认统计设置, 统计蓝图, 计算包含设施, 计算设施数量, 计算包含地基 } from '../lib/factory/stats.js';
@@ -202,6 +202,13 @@ export const selectedBuildingCoord = computed(() => {
   return preview?.buildingCoord(index) ?? null
 })
 
+/** 选中建筑第二个端点的坐标（格）: 分拣器 = 爪臂末端，其余建筑与第一个端点相同 */
+export const selectedBuildingEndCoord = computed(() => {
+  const index = factory.selectedIndex
+  if (index === null || !factory.blueprint) return null
+  return preview?.buildingEndCoord(index) ?? null
+})
+
 // ─────────────────────────────────────────────────────────────
 // 各项上限
 // ─────────────────────────────────────────────────────────────
@@ -314,6 +321,21 @@ export interface BuildingChanges {
   parameters?: Record<string, any>
   /** 建筑备注 */
   content?: string | null
+  // 分拣器反转用的连接 / 两端位姿（其余建筑用不到）
+  outputObjIdx?: number
+  inputObjIdx?: number
+  outputToSlot?: number
+  inputFromSlot?: number
+  outputFromSlot?: number
+  inputToSlot?: number
+  outputOffset?: number
+  inputOffset?: number
+  localOffset?: Array<{ x: number, y: number, z: number }>
+  yaw?: number[]
+  tilt?: number
+  pitch?: number
+  tilt2?: number
+  pitch2?: number
 }
 
 /** 连在一起的研究站（连同它自己） */
@@ -450,6 +472,49 @@ export function editStationType(index: number, dropSlot: number | null = null): 
   }
 
   return editBuilding(index, { itemId, modelIndex: ITEM_MODEL[itemId]?.[0], parameters })
+}
+
+/**
+ * 反转分拣器: 交换抓取端和放下端
+ * 
+ *   - 连接与插槽成对交换
+ *   - yaw: 两组各 +180°（分拣器两端的朝向都沿爪臂方向）
+ *   - pitch / tilt: 对调后取反
+ */
+export function reverseInserter(index: number): boolean {
+  const building = factory.blueprint?.buildings?.[index]
+  if (!building || Number(building.index) !== index || !isInserter(building.itemId)) return false
+
+  const offsets = Array.isArray(building.localOffset) ? building.localOffset : []
+  const grab = offsets[0]
+  const drop = offsets[1]
+  if (!grab || !drop) return false
+
+  /** 数字字段兜底 */
+  const int = (value: unknown, fallback = 0) => (Number.isFinite(Number(value)) ? Number(value) : fallback)
+  /** 角度归到 [0, 360) */
+  const turn = (deg: number) => ((deg % 360) + 360) % 360
+
+  const yaws = Array.isArray(building.yaw) ? building.yaw : []
+  const grabYaw = int(yaws[0])
+  const dropYaw = int(yaws[1], grabYaw)
+
+  return editBuilding(index, {
+    // 连接: 输入 ↔ 输出
+    inputObjIdx: int(building.outputObjIdx, -1),
+    outputObjIdx: int(building.inputObjIdx, -1),
+    inputFromSlot: int(building.outputToSlot),
+    outputToSlot: int(building.inputFromSlot),
+    inputOffset: int(building.outputOffset),
+    outputOffset: int(building.inputOffset),
+    // 两端位姿: 第二组 ↔ 第一组
+    localOffset: [drop, grab],
+    yaw: [turn(dropYaw + 180), turn(grabYaw + 180)],
+    pitch: turn(-int(building.pitch2)),
+    pitch2: turn(-int(building.pitch)),
+    tilt: turn(-int(building.tilt2)),
+    tilt2: turn(-int(building.tilt)),
+  })
 }
 
 /**

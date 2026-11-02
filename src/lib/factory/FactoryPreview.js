@@ -12,7 +12,8 @@
  *
  * 用法: init(canvas) / setBlueprint(data, resetView)（null = 清空）/ setGridVisible(visible) /
  *       setLayerVisible('foundation'|'buildings'|'belts'|'inserters'|'icons', visible) / setTargetLatitude(lat, north) /
- *       setSelectionListener(fn) / selectBuilding(index) / buildingCoord(index) / resetView() / resize() / dispose()
+ *       setSelectionListener(fn) / selectBuilding(index) / buildingCoord(index) / buildingEndCoord(index) /
+ *       resetView() / resize() / dispose()
  *
  * 图层: 地基（铺地，只上色，默认显示，界面无开关）/ 建筑 / 带子 / 爪子 / 图标
  */
@@ -1968,6 +1969,17 @@ class FactoryPreview {
     const i = Number.isInteger(index) ? Number(index) : null;
     if (i === null ) return null;
     return this._allBuildings[i]?.coord ?? null;
+  }
+
+  /**
+   * 建筑第二个端点的坐标（格）—— 分拣器爪臂末端，其余建筑与第一个端点相同
+   * @param {number|null} index 建筑序号
+   * @returns {{x:number, y:number, z:number}|null}
+   */
+  buildingEndCoord(index) {
+    const i = Number.isInteger(index) ? Number(index) : null;
+    if (i === null) return null;
+    return this._allBuildings[i]?.endCoord ?? null;
   }
 
   /**
