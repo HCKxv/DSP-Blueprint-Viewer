@@ -4,7 +4,7 @@ import { stringifyBlueprint } from '../lib/blueprint/factory/factoryEncoder.js'
 import { isInserter, isStation, itemName } from '../lib/blueprint/factory/factoryItems.js'
 import { compactBuildings, discardBuildings, discardRects, syncBeltIcon } from '../lib/factory/batchEdit.js'
 import { ITEM_MODEL } from '../lib/factory/buildingModels.js';
-import { 默认统计设置, 统计蓝图, 计算包含设施, 计算设施数量, 计算包含地基 } from '../lib/factory/stats.js';
+import { 新建统计设置, 统计蓝图, 计算包含设施, 计算设施数量, 计算包含地基 } from '../lib/factory/stats.js';
 import type { FactoryPreview } from '../lib/factory/FactoryPreview.js'
 import type { FactoryBlueprint, FactoryHeader } from '../lib/blueprint/factory/factoryTypes'
 import type { BatchRule } from '../lib/factory/batchRules'
@@ -14,10 +14,13 @@ import { saveAsText } from '../utils/download'
 
 /** 蓝图统计设置，见 lib/factory/stats.js */
 export interface StatsSettings {
-  /** 是否按增产剂 Mk.III 计算 */
-  使用增产剂: boolean
+  /** 增产剂: 0 = 不用, 1141 = Mk.I, 1142 = Mk.II, 1143 = Mk.III */
+  使用增产剂: number
   /** 透镜: 0 = 不用, 1209 = 引力透镜, 1211 = 黑雾透镜 */
   使用透镜: number
+  /** 质能燃料（人造恒星）: 1803 = 反物质燃料棒, 1804 = 奇异湮灭燃料棒 */
+  使用质能燃料: number
+  使用化学燃料: number
 }
 
 export const factory = reactive({
@@ -38,7 +41,7 @@ export const factory = reactive({
   /** 蓝图统计结果 */
   stats: markRaw(统计蓝图(null)),
   /** 统计设置 */
-  statsSettings: { ...默认统计设置 } satisfies StatsSettings,
+  statsSettings: 新建统计设置() satisfies StatsSettings,
 })
 
 /** 「打开蓝图」弹窗 */
@@ -47,8 +50,8 @@ export const showOpenModal = ref(false)
 /** 批量编辑的规则数组（规则类型表见 lib/factory/batchRules.ts） */
 export const batchRules = ref<BatchRule[]>([])
 
-/** 左侧输入栏的三档: 信息/ 详情/ 批量编辑 */
-export type FactoryViewId = 'info' | 'detail' | 'batch'
+/** 左侧输入栏的四档: 信息 / 详情 / 统计 / 批量编辑 */
+export type FactoryViewId = 'info' | 'detail' | 'stats' | 'batch'
 
 /** 当前显示的档位 */
 export const factoryView = ref<FactoryViewId>('info')
@@ -82,6 +85,39 @@ watch(() => factory.selectedIndex, (index) => {
 })
 
 /**
+ * 统计蓝图() 的返回值里，自动判断设置要用到的部分
+ */
+interface StatsResult {
+  配方详情: Map<number, unknown>
+  物流详情: Map<number, Record<string, { 输入: boolean; 输出: boolean }>>
+}
+
+/**
+ * 自动判断设置
+ *
+ * @param stats 统计蓝图() 的返回值
+ */
+function detectStatsSettings(stats: StatsResult): StatsSettings {
+  const hasRecipe = (recipeId: number) => stats.配方详情.has(recipeId)
+  const hasLogisticsInput = (itemId: number) => {
+    const logistics = stats.物流详情.get(itemId)
+    return !!logistics && Object.values(logistics).some((row) => row.输入)
+  }
+
+  const settings: StatsSettings = 新建统计设置()
+
+  settings.使用增产剂 = hasRecipe(108) || hasLogisticsInput(1143) ? 1143 : 0
+
+  if (hasRecipe(162) || hasLogisticsInput(1211)) settings.使用透镜 = 1211
+  else if (hasRecipe(101) || hasLogisticsInput(1209)) settings.使用透镜 = 1209
+  else settings.使用透镜 = 0
+
+  settings.使用质能燃料 = hasRecipe(156) || hasLogisticsInput(1804) ? 1804 : 1803
+
+  return settings
+}
+
+/**
  * 换一份蓝图 → 让预览重摆（「蓝图 → 场景」只有这一个出口）
  *
  * @param blueprint 新蓝图
@@ -92,6 +128,7 @@ function applyBlueprint(blueprint: FactoryBlueprint | null, resetView: boolean =
 
   factory.blueprint = blueprint ? markRaw({ ...blueprint }) : null
   factory.stats = markRaw(统计蓝图(factory.blueprint))
+  factory.statsSettings = detectStatsSettings(factory.stats)
   preview?.setBlueprint(factory.blueprint, resetView)
 
   if (selected !== null && !resetView) {

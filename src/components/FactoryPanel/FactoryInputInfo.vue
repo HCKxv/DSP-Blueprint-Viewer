@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FactoryInfo from './FactoryInfo.vue'
 import FactorySelection from './FactorySelection.vue'
+import FactoryStats from './FactoryStats.vue'
 import FactoryBatchEdit from './FactoryBatchEdit.vue'
 import ToolSlider from '../ToolSlider.vue'
 import {
@@ -18,10 +19,11 @@ import { useToast } from '../../composables/useToast'
 
 const toast = useToast()
 
-/** 三档的图标在模板里，这里只要 value 与 label */
+/** 四档的图标在模板里，这里只要 value 与 label */
 const viewItems = [
   { value: 'info', label: '信息' },
   { value: 'detail', label: '详情' },
+  { value: 'stats', label: '统计' },
   { value: 'batch', label: '批量编辑' },
 ]
 
@@ -64,7 +66,7 @@ async function onSave() {
       @click="onClose"
     >关闭蓝图</button>
 
-    <!-- 三档滑块: 信息 / 详情 / 批量编辑 -->
+    <!-- 四档滑块: 信息 / 详情 / 统计 / 批量编辑 -->
     <ToolSlider
       v-model="factoryView"
       class="factory-view-switch"
@@ -83,6 +85,13 @@ async function onSave() {
           <circle cx="6.9" cy="6.9" r="4.35" />
           <path d="M10.1 10.1 13.45 13.45" />
         </svg>
+        <!-- 统计 -->
+        <svg v-else-if="item.value === 'stats'" viewBox="0 0 16 16">
+          <circle cx="8" cy="8" r="5.2" />
+          <path d="M8 8V2.8" />
+          <path d="M8 8L10.6 12.5" />
+          <path d="M8 8L2.8 8" />
+        </svg>
         <!-- 批量编辑 -->
         <svg v-else viewBox="0 0 16 16">
           <path d="M10.16 3.94A4.6 4.6 0 0 1 9.94 12.17" />
@@ -97,6 +106,7 @@ async function onSave() {
   <div class="scroll-y factory-scroll">
     <FactoryBatchEdit v-if="factoryView === 'batch'" />
     <FactoryInfo v-else-if="factoryView === 'info'" />
+    <FactoryStats v-else-if="factoryView === 'stats'" />
     <FactorySelection v-else />
   </div>
 
@@ -155,22 +165,22 @@ async function onSave() {
   margin-right: auto;
 }
 
-/* 三档滑块（滑动件本身见 components/ToolSlider.vue） */
+/* 四档滑块（滑动件本身见 components/ToolSlider.vue） */
 .factory-view-switch {
   display: inline-grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   margin-left: auto;
 }
 
 .factory-view-switch :deep(.tool-slider-btn) {
   justify-content: center;
-  padding: 3px 8px; /* 三档都是图标，左右内边距压到 8px，图标间距 16px */
+  padding: 3px 8px; /* 四档都是图标，左右内边距压到 8px，图标间距 16px */
   min-height: 24px; /* 文字换成图标后别被压矮，滑块高度跟旁边按钮对齐 */
   font-size: 12px;
   gap: 0;
 }
 
-/* 信息 = 文件 / 详情 = 放大镜 / 批量编辑 = 循环双箭头，线性图标跟着档位文字色走 */
+/* 信息 = 文件 / 详情 = 放大镜 / 统计 = 饼状图 / 批量编辑 = 循环双箭头，线性图标跟着档位文字色走 */
 .factory-view-switch :deep(svg) {
   width: 14px;
   height: 14px;

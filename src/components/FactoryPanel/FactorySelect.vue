@@ -15,6 +15,8 @@ const props = defineProps<{
   prefix?: string
   /** 值 → 颜色，决定触发器与各选项的配色 */
   colors?: Record<number, string>
+  /** 值 → 图标 URL（给了就在名字前加图标；没有图标的选项留一格空位对齐） */
+  icons?: Record<number, string>
 }>()
 
 const emit = defineEmits<{ 'update:modelValue': [number] }>()
@@ -28,7 +30,13 @@ const box = ref<HTMLElement | null>(null)
 const list = computed(() => Object.entries(props.options).map(([value, name]) => ({ value: Number(value), name })))
 const currentText = computed(() => `${props.prefix ?? ''}${props.options[props.modelValue] ?? ''}`)
 
-const colorOf = (value: number) => props.colors?.[Number(value)] ?? 'inherit'
+const colorOf = (value: number) => props.colors?.[Number(value)]
+const iconOf = (value: number) => props.icons?.[Number(value)]
+/** 有配色才注入 --role-color，否则走样式里的 fallback 色 */
+const roleStyle = (value: number) => {
+  const color = colorOf(value)
+  return color ? { '--role-color': color } : {}
+}
 
 /** 贴着触发器算位置: 下面 4px 起，放不下就往上弹（挂载后再按真实高度校正一次） */
 function place() {
@@ -87,9 +95,12 @@ onBeforeUnmount(() => bind(false))
     <button
       class="factory-select-trigger"
       type="button"
-      :style="{ '--role-color': colorOf(modelValue) }"
+      :style="roleStyle(modelValue)"
       @click="toggle"
-    >{{ currentText }}</button>
+    >
+      <img v-if="iconOf(modelValue)" class="factory-select-icon" :src="iconOf(modelValue)" alt="">
+      <span>{{ currentText }}</span>
+    </button>
 
     <Teleport to="body">
       <div
@@ -103,10 +114,14 @@ onBeforeUnmount(() => bind(false))
           :key="item.value"
           class="factory-select-option"
           :class="{ active: item.value === modelValue }"
-          :style="{ '--role-color': colorOf(item.value) }"
+          :style="roleStyle(item.value)"
           type="button"
           @click="pick(item.value)"
-        >{{ prefix }}{{ item.name }}</button>
+        >
+          <img v-if="iconOf(item.value)" class="factory-select-icon" :src="iconOf(item.value)" alt="">
+          <span v-else-if="icons" class="factory-select-icon"></span>
+          <span>{{ prefix }}{{ item.name }}</span>
+        </button>
       </div>
     </Teleport>
   </span>
@@ -124,6 +139,7 @@ onBeforeUnmount(() => bind(false))
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   box-sizing: border-box;
   height: var(--storage-line-h, 22px);
   padding: 0 6px;
@@ -135,6 +151,14 @@ onBeforeUnmount(() => bind(false))
   font-size: 11px;
   white-space: nowrap;
   cursor: pointer;
+}
+
+/* 选项里的图标；没图标的选项留一格空位，文字才对齐 */
+.factory-select-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .factory-select-trigger:hover {
@@ -155,6 +179,9 @@ onBeforeUnmount(() => bind(false))
 }
 
 .factory-select-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 2px 6px;
   border: none;
   border-radius: 4px;

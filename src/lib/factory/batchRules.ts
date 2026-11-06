@@ -108,14 +108,14 @@ export const BATCH_RULE_TYPES: BatchRuleType[] = [
   },
   {
     id: 'stationItem',
-    label: '修改物流塔物品',
+    label: '替换物流塔物品',
     options: [{ kind: 'replace', typeId: 'item' }],
     values: () => ({ from: 0, to: 0 }),
     run: editStationItems,
   },
   {
     id: 'filter',
-    label: '修改物品过滤',
+    label: '替换物品过滤',
     options: [
       { kind: 'replace', typeId: 'item' },
       {
