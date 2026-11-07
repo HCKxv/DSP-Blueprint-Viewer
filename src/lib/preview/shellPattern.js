@@ -2,13 +2,13 @@
 import * as THREE from 'three';
 import { getShellCellGridScale } from './shellCellsCompute.js';
 // 图案线蒙版贴图
-import tex0 from '../../assets/shell-textures/dyson-shell-unlit-0.png';
-import tex1 from '../../assets/shell-textures/dyson-shell-unlit-1.png';
-import tex2 from '../../assets/shell-textures/dyson-shell-unlit-2.png';
-import tex3 from '../../assets/shell-textures/dyson-shell-unlit-3.png';
-import tex4 from '../../assets/shell-textures/dyson-shell-unlit-4.png';
-import tex5 from '../../assets/shell-textures/dyson-shell-unlit-5.png';
-import tex6 from '../../assets/shell-textures/dyson-shell-unlit-6.png';
+import tex0 from '../../assets/dyson/dyson-shell-unlit-0.png';
+import tex1 from '../../assets/dyson/dyson-shell-unlit-1.png';
+import tex2 from '../../assets/dyson/dyson-shell-unlit-2.png';
+import tex3 from '../../assets/dyson/dyson-shell-unlit-3.png';
+import tex4 from '../../assets/dyson/dyson-shell-unlit-4.png';
+import tex5 from '../../assets/dyson/dyson-shell-unlit-5.png';
+import tex6 from '../../assets/dyson/dyson-shell-unlit-6.png';
 
 const PATTERN_TEXTURES = [tex0, tex1, tex2, tex3, tex4, tex5, tex6];
 

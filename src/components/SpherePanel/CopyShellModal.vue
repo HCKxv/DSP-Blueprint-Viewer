@@ -7,6 +7,7 @@ import { stringifyBlueprint } from '../../lib/blueprint/sphere/sphereEncoder.js'
 import { computePower, fmtKW } from '../../lib/power/power.js'
 import { computePointsAsync, cancelPowerComputes } from '../../lib/power/powerAsync.js'
 import { useToast } from '../../composables/useToast'
+import powerIcon from '../../assets/icons/signal/503.png'
 
 const toast = useToast()
 
@@ -219,7 +220,7 @@ onBeforeUnmount(() => {
         <button class="btn-sm" :disabled="!!busy || computing || !!invalidText" @click="previewPower">
           {{ computing ? '计算中...' : '计算发电量' }}
         </button>
-        <span v-if="previewPowerText">⚡ {{ previewPowerText }}</span>
+        <span v-if="previewPowerText"><img class="power-icon" :src="powerIcon" alt="" /> {{ previewPowerText }}</span>
       </div>
 
       <hr class="menu-divider" />
@@ -243,5 +244,12 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.power-icon {
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
+  vertical-align: -0.12em;
 }
 </style>

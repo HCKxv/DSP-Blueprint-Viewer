@@ -3,14 +3,26 @@ import { ref } from 'vue'
 import StatBox from './StatBox.vue'
 import type { StatNode } from './statsTree'
 
-defineProps<{ node: StatNode }>()
+const props = defineProps<{ node: StatNode }>()
+const emit = defineEmits<{
+  contextmenu: [node: StatNode, event: MouseEvent]
+}>()
 
 // 分组默认折叠
 const collapsed = ref(true)
+
+function onContextMenu(event: MouseEvent) {
+  event.stopPropagation()
+  emit('contextmenu', props.node, event)
+}
+
+function forwardContextMenu(node: StatNode, event: MouseEvent) {
+  emit('contextmenu', node, event)
+}
 </script>
 
 <template>
-  <div class="stat-section">
+  <div class="stat-section" @contextmenu="onContextMenu">
     <div class="stat-section-header" :class="{ collapsed }" @click="collapsed = !collapsed">
       <span class="arrow">▼</span>
       <span class="stat-section-title">{{ node.title }} ({{ node.count }})</span>
@@ -26,8 +38,8 @@ const collapsed = ref(true)
     </div>
     <div class="stat-section-body" :class="{ collapsed }">
       <template v-for="(child, i) in node.children" :key="i">
-        <StatSection v-if="child.kind === 'section'" :node="child" />
-        <StatBox v-else :node="child" />
+        <StatSection v-if="child.kind === 'section'" :node="child" @contextmenu="forwardContextMenu" />
+        <StatBox v-else :node="child" @contextmenu="forwardContextMenu" />
       </template>
     </div>
   </div>

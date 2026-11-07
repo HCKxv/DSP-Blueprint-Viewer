@@ -1,45 +1,17 @@
 /** buildShell — 壳层渲染对象组装 */
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { applyCellPatterns, buildBackCells } from './shellPattern.js';
+import nodeMesh0 from '../../assets/dyson/node-0.json';
+import frameMesh0 from '../../assets/dyson/frame-0.json';
+import frameMesh1 from '../../assets/dyson/frame-1.json';
+import frameMesh2 from '../../assets/dyson/frame-2.json';
+import frameEmission0 from '../../assets/dyson/sphere-e.png';
+import frameEmission1 from '../../assets/dyson/frame-1-e.png';
 
-// 节点（简化模型）: 主体圆柱 + 朝内的细圆柱 + 朝外发光端面（节点颜色）
-const NODE_BODY_RADIUS = 36;     // 主体圆柱半径（蓝图单位）
-const NODE_BODY_HEIGHT = 46;     // 主体圆柱高度（沿径向）
-const NODE_CAP_RADIUS = 20;      // 朝外发光圆片半径（比主体小一圈）
-const NODE_STALK_RADIUS = 7;     // 细圆柱半径
-const NODE_STALK_LENGTH = 108;   // 细圆柱长度（朝内伸出）
-
-/**
- * 构建节点几何
- * 真实模型由 assembleNodes 用每实例的旋转把 +Y 对齐到各自节点的径向。
- */
-export function buildNodeGeometries() {
-  const yAxis = new THREE.Vector3(0, 1, 0);
-  // 主体: 中心在原点，沿 Y 从 -H/2 到 +H/2
-  const body = new THREE.CylinderGeometry(NODE_BODY_RADIUS, NODE_BODY_RADIUS, NODE_BODY_HEIGHT, 14, 1, false);
-  // 细圆柱: 从主体底面朝内（-Y）伸出去
-  const stalk = new THREE.CylinderGeometry(NODE_STALK_RADIUS, NODE_STALK_RADIUS, NODE_STALK_LENGTH, 8, 1, false);
-  stalk.translate(0, -(NODE_BODY_HEIGHT + NODE_STALK_LENGTH) / 2, 0);
-  const merged = mergeGeometries([body, stalk], false) ?? body;
-  merged.computeVertexNormals();
-  // 端面: 朝外那面（+Y），朝外发光
-  const cap = new THREE.CircleGeometry(NODE_CAP_RADIUS, 14);
-  cap.rotateX(-Math.PI / 2);                       // 圆面法线 → +Y
-  cap.translate(0, NODE_BODY_HEIGHT / 2 + 0.35, 0); // 贴在主体顶面外一点，避免 z-fighting
-  return { body: merged, cap, yAxis };
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Worker: 整层几何计算
-// ═══════════════════════════════════════════════════════════════
-
-// 进程内复用一只；报错/超时/被新构建取代后丢弃，下次重建
+// 整层几何计算的 Worker 调度，详细/简化模型共用
 let layerWorker = null;
-// 当前在飞请求的失败回调: 供 cancelLayerWorker() 主动中止
 let pendingAbort = null;
 
-/** 单层构建时限（毫秒）: 超时判定在主线程，超时即终止 Worker 并让 render 的 catch 接手 */
 const LAYER_BUILD_TIMEOUT_MS = 10000;
 
 /** 立即中止正在进行的层构建 */
@@ -48,10 +20,9 @@ export function cancelLayerWorker() {
 }
 
 /**
- * 把一整层的几何计算交给 Worker，并用主线程的看门狗限时。
- * 超时（或 Worker 报错）都会 reject —— 由 buildShellLayer 抛出、render 的 catch 接手。
- * @param {{shData: object, orbit: object, scale: number}} payload
- * @returns {Promise<object>} { nodes, frames, cells, painting, pole }
+ * 把一整层的几何计算交给 Worker，并用主线程看门狗限时。
+ * @param {{model?: 'detailed'|'simplified', shData: object, orbit: object, scale: number}} payload
+ * @returns {Promise<object>}
  */
 function computeLayerInWorker(payload, timeoutMs = LAYER_BUILD_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
@@ -73,11 +44,11 @@ function computeLayerInWorker(payload, timeoutMs = LAYER_BUILD_TIMEOUT_MS) {
       if (settled) return;
       settled = true;
       cleanup();
-      layerWorker?.terminate();   // 出错/超时/取消后整只丢弃，下次重建
+      layerWorker?.terminate();
       layerWorker = null;
       reject(err);
     };
-    pendingAbort = fail;   // 供 cancelLayerWorker() 中止
+    pendingAbort = fail;
     function onMsg(e) {
       if (settled) return;
       settled = true;
@@ -86,13 +57,93 @@ function computeLayerInWorker(payload, timeoutMs = LAYER_BUILD_TIMEOUT_MS) {
       resolve((e.data && e.data.layer) || null);
     }
     function onErr(e) { fail(new Error((e && e.message) || 'Worker 执行出错')); }
-    // 主线程看门狗: Worker 不参与计时，超时直接终止它（卡住的计算不会继续烧 CPU）
     const timer = setTimeout(
-      () => fail(new Error(`构建超时`)), timeoutMs);
+      () => fail(new Error('构建超时')), timeoutMs);
     w.addEventListener('message', onMsg);
     w.addEventListener('error', onErr);
     w.postMessage(payload);
   });
+}
+
+// 材质色固定；背面色直接用壳面背面的 sharedBackMaterial 颜色
+const FIXED_FRAME_MATERIAL = 0x3f464d;
+const FIXED_NODE_MATERIAL = 0x4a4f55;
+const FRAME_MATERIAL_TINT = 0.02;
+const NODE_MATERIAL_TINT = 0.02;
+
+/** 框架/节点共用材质：固定材质色，按涂色计算发光，内侧面混入壳面背色。 */
+function makeDysonColorMaterial({
+  isNode, emissiveMap, emissionIntensity, sharedBackMaterial, starEmissionColor, materialTint = 0,
+}) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: isNode ? FIXED_NODE_MATERIAL : FIXED_FRAME_MATERIAL,
+    metalness: isNode ? 0.35 : 0.55,
+    roughness: isNode ? 0.55 : 0.5,
+    emissive: 0xffffff,
+    emissiveMap,
+    side: THREE.FrontSide,
+  });
+  if (isNode) mat.defines = { DYSON_NODE: '' };
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uStarEmission = { value: starEmissionColor ?? new THREE.Color(0xffffff) };
+    shader.uniforms.uBackColor = { value: sharedBackMaterial?.color ?? new THREE.Color(0xffffff) };
+    shader.uniforms.uBackStrength = { value: 1.0 };
+    shader.uniforms.uEmissionIntensity = { value: emissionIntensity };
+    shader.uniforms.uMaterialTint = { value: materialTint };
+
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute vec4 aPaintRGBA; // rgb=涂色，a=涂色标记
+varying vec4 vPaintRGBA;
+varying float vRadialDot;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+#ifdef USE_INSTANCING
+  vec3 dysonRadial = normalize(instanceMatrix[3].xyz);
+  vec3 dysonNormal = normalize(mat3(instanceMatrix) * objectNormal);
+  vRadialDot = dot(dysonNormal, dysonRadial);
+#else
+  vRadialDot = 0.0;
+#endif
+vPaintRGBA = aPaintRGBA;`);
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+uniform vec3 uStarEmission;
+uniform vec3 uBackColor;
+uniform float uBackStrength;
+uniform float uEmissionIntensity;
+uniform float uMaterialTint;
+varying vec4 vPaintRGBA;
+varying float vRadialDot;`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+float dysonPainted = step(0.5, vPaintRGBA.a);
+vec3 dysonPaint = vPaintRGBA.rgb;
+diffuseColor.rgb = mix(diffuseColor.rgb, dysonPaint, dysonPainted * uMaterialTint);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+vec3 dysonEmTex = texture2D(emissiveMap, vEmissiveMapUv).rgb;
+float dysonEmLum = dot(dysonEmTex, vec3(0.3, 0.6, 0.1));
+#ifdef DYSON_NODE
+vec3 dysonEm = mix(dysonEmTex, dysonEmLum * dysonPaint, dysonPainted);
+#else
+vec3 dysonEm = dysonEmLum * mix(uStarEmission, dysonPaint, dysonPainted);
+#endif
+totalEmissiveRadiance = dysonEm * uEmissionIntensity;`)
+      .replace('#include <opaque_fragment>', `#include <opaque_fragment>
+// 仅明显朝向恒星的面用背色，侧面保持材质色
+float dysonBack = (1.0 - smoothstep(-0.65, -0.35, vRadialDot)) * uBackStrength;
+gl_FragColor.rgb = mix(gl_FragColor.rgb, uBackColor, dysonBack);`);
+  };
+  mat.customProgramCacheKey = () => (isNode ? 'dyson-node-color-v1' : 'dyson-frame-color-v1');
+  return mat;
+}
+/** 节点几何：局部 +Y 为径向，由 assembleNodes 放到节点位置。 */
+export function buildNodeGeometries() {
+  const body = new THREE.BufferGeometry();
+  body.setAttribute('position', new THREE.Float32BufferAttribute(nodeMesh0.positions, 3));
+  body.setAttribute('normal', new THREE.Float32BufferAttribute(nodeMesh0.normals, 3));
+  body.setAttribute('uv', new THREE.Float32BufferAttribute(nodeMesh0.uvs, 2));
+  body.setIndex(nodeMesh0.indices);
+  return { body, cap: null, yAxis: new THREE.Vector3(0, 1, 0) };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -141,78 +192,103 @@ function assembleShellCells(bucketList) {
   return group.children.length ? group : null;
 }
 
-/** 节点: 两个 InstancedMesh（本体 + 发光端面） */
-function assembleNodes(nodes, shellGroup, nodeGeoms, scale) {
-  if (!nodes || !nodes.count || !nodeGeoms) return;
-  const { body, cap, yAxis } = nodeGeoms;
-  // 双面: 从壳体内侧看节点时，圆柱的内表面同样要挡住后面的端面
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: 0x4a4f55, metalness: 0.25, roughness: 0.6, side: THREE.DoubleSide,   // 深灰
+/** 节点实例。 */
+function assembleNodes(nodes, shellGroup, nodeGeoms, scale, sharedBackMaterial, starEmissionColor) {
+  if (!nodes || !nodes.count || !nodeGeoms?.body) return;
+  // 每层克隆一份，挂本层实例属性
+  const geom = nodeGeoms.body.clone();
+  geom.setAttribute('aPaintRGBA', new THREE.InstancedBufferAttribute(nodes.paintRGBA, 4));
+  const mat = makeDysonColorMaterial({
+    isNode: true,
+    emissiveMap: getFrameEmission(0),
+    emissionIntensity: 5.5,
+    sharedBackMaterial,
+    starEmissionColor,
+    materialTint: NODE_MATERIAL_TINT,
   });
-  // 端面发光: 用 Basic + 实例色（实例色会乘进材质色），不受光照衰减
-  const capMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-  const bodyInst = new THREE.InstancedMesh(body, bodyMat, nodes.count);
-  const capInst = new THREE.InstancedMesh(cap, capMat, nodes.count);
+  const inst = new THREE.InstancedMesh(geom, mat, nodes.count);
   const m4 = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
   const dir = new THREE.Vector3();
+  const xAxis = new THREE.Vector3();
+  const zAxis = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 1, 0);
   const pos = new THREE.Vector3();
-  const sc = new THREE.Vector3(scale, scale, scale);
-  const c = new THREE.Color();
+  const s = 100 * scale;
+  const sc = new THREE.Vector3(s, s, s);
   for (let i = 0; i < nodes.count; i++) {
     pos.set(nodes.positions[i * 3], nodes.positions[i * 3 + 1], nodes.positions[i * 3 + 2]);
-    // 让几何的 +Y 对齐该节点的径向（朝外），于是细圆柱自动朝太阳
     dir.copy(pos).normalize();
-    q.setFromUnitVectors(yAxis, dir);
-    m4.compose(pos, q, sc);
-    bodyInst.setMatrixAt(i, m4);
-    capInst.setMatrixAt(i, m4);
-    // 只有朝外端面用节点颜色（发光）；主体保持材质本色（金属灰）
-    capInst.setColorAt(i, c.setHex(nodes.colors[i]));
+    // 局部 Y 对齐径向
+    xAxis.crossVectors(dir, up);
+    if (xAxis.lengthSq() < 1e-10) xAxis.set(1, 0, 0);
+    xAxis.normalize();
+    zAxis.crossVectors(xAxis, dir).normalize();
+    m4.makeBasis(xAxis, dir, zAxis);
+    m4.setPosition(pos);
+    m4.scale(sc);
+    inst.setMatrixAt(i, m4);
   }
-  for (const inst of [bodyInst, capInst]) {
-    inst.instanceMatrix.needsUpdate = true;
-    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
-    inst.frustumCulled = false;
-    shellGroup.add(inst);
-  }
+  inst.instanceMatrix.needsUpdate = true;
+  inst.frustumCulled = false;
+  shellGroup.add(inst);
 }
 
-/** 框架: 外侧面（框架本色）+ 径向内侧面（恒星色，从壳体内侧看到的就是它） */
-function assembleFrames(frames, shellGroup, sharedBackMaterial) {
-  if (!frames || !frames.indices.length) return;
-  const posAttr = new THREE.Float32BufferAttribute(frames.positions, 3);
-  const colAttr = new THREE.Float32BufferAttribute(frames.colors, 3);
+// 框架网格与发光图集（按 style 索引）
+const FRAME_MESHES = [frameMesh0, frameMesh1, frameMesh2];
+const FRAME_EMISSION_URLS = [frameEmission0, frameEmission1, frameEmission1];
+const frameEmissionTextures = [];
 
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', posAttr);
-  geom.setAttribute('color', colAttr);
-  // 索引显式包 BufferAttribute: setIndex 对 TypedArray 会原样存下，渲染器随后会崩
-  geom.setIndex(new THREE.Uint32BufferAttribute(frames.indices, 1));
-  geom.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.2, roughness: 0.6 });
-  shellGroup.add(new THREE.Mesh(geom, mat));
-
-  const backGeom = new THREE.BufferGeometry();
-  backGeom.setAttribute('position', posAttr);
-  backGeom.setAttribute('color', colAttr);
-  backGeom.setIndex(new THREE.Uint32BufferAttribute(frames.backIndices, 1));
-  backGeom.computeVertexNormals();
-  let backMat;
-  if (sharedBackMaterial) {
-    // 与细胞背板同源: 克隆那份恒星色材质，改成双面（内侧面的朝向随弧线变化）
-    backMat = sharedBackMaterial.clone();
-    backMat.side = THREE.DoubleSide;
-    backMat.color.copy(sharedBackMaterial.color);
-    backMat.vertexColors = false;   // 用材质的恒星色，不用框架自身的顶点色
-  } else {
-    backMat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+/** 只加载发光贴图。 */
+function getFrameEmission(style) {
+  if (!frameEmissionTextures[style]) {
+    const tex = new THREE.TextureLoader().load(FRAME_EMISSION_URLS[style]);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    frameEmissionTextures[style] = tex;
   }
-  const backMesh = new THREE.Mesh(backGeom, backMat);
-  backMesh.name = 'shellFrameBack';
-  // 标记来源，preview.js 的 setSunColor 会顺着它一起换色
-  backMesh.userData.shellSharedBack = sharedBackMaterial || null;
-  shellGroup.add(backMesh);
+  return frameEmissionTextures[style];
+}
+
+/** 构建框架几何。 */
+function buildFrameGeometry(data) {
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(data.normals, 3));
+  geom.setAttribute('uv', new THREE.Float32BufferAttribute(data.uvs, 2));
+  geom.setIndex(data.indices);
+  return geom;
+}
+
+/** 框架实例。 */
+function assembleFrames(frames, shellGroup, sharedBackMaterial, starEmissionColor) {
+  const instances = frames?.instances;
+  if (!instances || !instances.length) return;
+
+  for (const inst of instances) {
+    if (!inst || inst.count <= 0) continue;
+    const style = Math.max(0, Math.min(2, inst.style | 0));
+    const data = FRAME_MESHES[style];
+    if (!data) continue;
+
+    const geom = buildFrameGeometry(data);
+    geom.setAttribute('aPaintRGBA', new THREE.InstancedBufferAttribute(inst.paintRGBA, 4));
+    const mat = makeDysonColorMaterial({
+      isNode: false,
+      emissiveMap: getFrameEmission(style),
+      emissionIntensity: 2.0,
+      sharedBackMaterial,
+      starEmissionColor,
+      materialTint: FRAME_MATERIAL_TINT,
+    });
+    const matrixAttr = new THREE.InstancedBufferAttribute(inst.matrices, 16);
+
+    const mesh = new THREE.InstancedMesh(geom, mat, inst.count);
+    mesh.name = 'shellFrame';
+    mesh.instanceMatrix = matrixAttr;
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.frustumCulled = false;
+    shellGroup.add(mesh);
+  }
 }
 
 /**
@@ -266,19 +342,20 @@ function assemblePainting(parts) {
  * @param {object} shData               壳层数据（nodes / frames / faces / fillGrid）
  * @param {object} orbit                轨道对象，取 radius 与姿态四元数
  * @param {number} scale                缩放系数（= 1 / 最大轨道半径）
- * @param {{body: THREE.BufferGeometry, cap: THREE.BufferGeometry}} nodeGeoms  共享的节点几何
- * @param {THREE.Material} sharedBackMaterial  恒星色背板材质（背面与框架内侧面共用配色）
+ * @param {{body: THREE.BufferGeometry, cap: THREE.BufferGeometry|null}} nodeGeoms  共享的节点几何
+ * @param {THREE.Material} sharedBackMaterial  壳面背面材质
+ * @param {THREE.Color} starEmissionColor       未涂色框架发光色
  * @returns {Promise<{group: THREE.Group, pole: THREE.Vector3, cells: THREE.Group|null, paintingGroup: THREE.Group|null}>}
  *          group 为整层（含背面），cells 仅正面细胞，paintingGroup 为涂色烘焙源
  */
-export async function buildShellLayer(shData, orbit, scale, nodeGeoms, sharedBackMaterial) {
+export async function buildShellLayer(shData, orbit, scale, nodeGeoms, sharedBackMaterial, starEmissionColor) {
   const layer = await computeLayerInWorker({ shData, orbit, scale });
   if (!layer) throw new Error('Worker 未返回壳层数据');
 
   const shellGroup = new THREE.Group();
 
-  assembleNodes(layer.nodes, shellGroup, nodeGeoms, scale);
-  assembleFrames(layer.frames, shellGroup, sharedBackMaterial);
+  assembleNodes(layer.nodes, shellGroup, nodeGeoms, scale, sharedBackMaterial, starEmissionColor);
+  assembleFrames(layer.frames, shellGroup, sharedBackMaterial, starEmissionColor);
 
   const cellMesh = assembleShellCells(layer.cells);
   if (cellMesh) {
@@ -295,5 +372,96 @@ export async function buildShellLayer(shData, orbit, scale, nodeGeoms, sharedBac
     pole: new THREE.Vector3(layer.pole.x, layer.pole.y, layer.pole.z).normalize(),
     cells: cellMesh,
     paintingGroup,
+  };
+}
+
+const STENCIL_BASE = 200;
+
+export async function buildShellSimpleLayer(shData, orbit, scale, sharedBackMaterial) {
+  const data = await computeLayerInWorker({ model: 'simplified', shData, orbit, scale });
+  if (!data) throw new Error('Worker 未返回简化壳层数据');
+
+  const group = new THREE.Group();
+  const stencilRef = STENCIL_BASE + (orbit.id || 0);
+
+  if (data.nodes?.count) {
+    const nodeGeom = new THREE.SphereGeometry(1, 8, 8);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.2, roughness: 0.6 });
+    const inst = new THREE.InstancedMesh(nodeGeom, mat, data.nodes.count);
+    const m4 = new THREE.Matrix4();
+    const c = new THREE.Color();
+    const s = 50 * scale;
+    for (let i = 0; i < data.nodes.count; i++) {
+      m4.makeScale(s, s, s);
+      m4.setPosition(
+        data.nodes.positions[i * 3],
+        data.nodes.positions[i * 3 + 1],
+        data.nodes.positions[i * 3 + 2],
+      );
+      inst.setMatrixAt(i, m4);
+      inst.setColorAt(i, c.setHex(data.nodes.colors[i]));
+    }
+    inst.instanceMatrix.needsUpdate = true;
+    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    group.add(inst);
+  }
+
+  if (data.frames?.positions?.length) {
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(data.frames.positions, 3));
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(data.frames.colors, 3));
+    geom.setIndex(new THREE.Uint32BufferAttribute(data.frames.indices, 1));
+    geom.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.2, roughness: 0.6 });
+    group.add(new THREE.Mesh(geom, mat));
+  }
+
+  if (data.faces?.positions?.length) {
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(data.faces.positions, 3));
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(data.faces.colors, 3));
+    geom.setIndex(new THREE.Uint32BufferAttribute(data.faces.indices, 1));
+    geom.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.FrontSide, depthWrite: true });
+    mat.stencilWrite = true;
+    mat.stencilWriteMask = 0xff;
+    mat.stencilRef = stencilRef;
+    mat.stencilFunc = THREE.AlwaysStencilFunc;
+    mat.stencilZPass = THREE.ReplaceStencilOp;
+    const faceGroup = new THREE.Group();
+    faceGroup.add(new THREE.Mesh(geom, mat));
+    faceGroup.add(new THREE.Mesh(geom, sharedBackMaterial));
+    group.add(faceGroup);
+  }
+
+  const paintingMeshes = [];
+  for (const part of data.painting ?? []) {
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(part.positions, 3));
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(part.colors, 4));
+    const mat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      depthWrite: true,
+      side: THREE.FrontSide,
+      blending: part.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    });
+    mat.stencilWrite = true;
+    mat.stencilWriteMask = 0x00;
+    mat.stencilRef = stencilRef;
+    mat.stencilFunc = THREE.EqualStencilFunc;
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.renderOrder = 3;
+    mesh.frustumCulled = false;
+    group.add(mesh);
+    paintingMeshes.push(mesh);
+  }
+
+  return {
+    group,
+    pole: new THREE.Vector3(data.pole.x, data.pole.y, data.pole.z),
+    paintingMeshes,
+    cells: null,
+    paintingGroup: null,
   };
 }

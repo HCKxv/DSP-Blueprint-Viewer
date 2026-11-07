@@ -25,6 +25,8 @@ interface Row {
 /** 能排序的列 */
 type SortKey = 'id' | '净产' | '产出' | '消耗'
 
+const NUM_SORT_KEYS: SortKey[] = ['净产', '产出', '消耗']
+
 /** 物流类型 → 图标（星际船 / 运输机 / 配送机 / 伊卡洛斯） */
 const LOGI_TYPES = [
   { key: '星际', label: '星际', icon: itemIconUrl(5002) },
@@ -216,7 +218,7 @@ function fmt(value: number): string {
           物流<span v-if="logisticsFirst" class="stats-arrow">↑</span>
         </button>
         <button
-          v-for="col in ['净产', '产出', '消耗']"
+          v-for="col in NUM_SORT_KEYS"
           :key="col"
           type="button"
           class="stats-sort stats-num"

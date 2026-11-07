@@ -4,6 +4,8 @@ import PreviewPanel from './SpherePanel/PreviewPanel.vue'
 import SettingsPanel from './SpherePanel/SettingsPanel.vue'
 import BlueprintInput from './SpherePanel/BlueprintInput.vue'
 import CopyShellModal from './SpherePanel/CopyShellModal.vue'
+import ColorReplaceModal from './SpherePanel/ColorReplaceModal.vue'
+import GenerateBlueprintModal from './SpherePanel/GenerateBlueprintModal.vue'
 </script>
 
 <template>
@@ -23,6 +25,8 @@ import CopyShellModal from './SpherePanel/CopyShellModal.vue'
   </div>
 
   <CopyShellModal />
+  <ColorReplaceModal />
+  <GenerateBlueprintModal />
 </template>
 
 <style scoped>

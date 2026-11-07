@@ -1,18 +1,32 @@
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+
+const props = withDefaults(defineProps<{
   open: boolean
   title: string
-}>()
+  /** 弹窗宽度：数字按 px，字符串按 CSS 长度；默认 480px，最大 92vw */
+  width?: number | string
+}>(), {
+  width: 480,
+})
 
 const emit = defineEmits<{
   close: []
 }>()
+
+const boxStyle = computed(() => {
+  const width = props.width
+  if (width == null || width === '') return undefined
+  if (typeof width === 'number') return { width: `${width}px` }
+  const trimmed = width.trim()
+  return { width: /^\d+(?:\.\d+)?$/.test(trimmed) ? `${trimmed}px` : trimmed }
+})
 </script>
 
 <template>
   <div class="modal" :class="{ hidden: !open }">
     <div class="modal-backdrop" @click="emit('close')"></div>
-    <div class="modal-box">
+    <div class="modal-box" :style="boxStyle">
       <div class="modal-header">
         <span>{{ title }}</span>
         <button class="modal-close" @click="emit('close')">✕</button>
@@ -46,7 +60,8 @@ const emit = defineEmits<{
 
 .modal-box {
   position: relative;
-  width: min(480px, 92vw);
+  width: 480px;
+  max-width: 92vw;
   max-height: 80vh;
   background: var(--bg-panel);
   border: 1px solid var(--line);

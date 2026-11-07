@@ -1,36 +1,35 @@
 /** shellLayerCompute — 整层戴森壳的纯几何计算（节点 / 框架 / 细胞 / 涂色网格） */
 import * as THREE from 'three';
 import {
-  _toHexColor, _convertBP, _normQuat, _edgeKey,
+  _convertBP, _normQuat, _edgeKey,
   _sphericalArcPoints, _gridArcPoints,
 } from './geometry.js';
 import { computeShellCellBuckets } from './shellCellsCompute.js';
 import { buildPaintingGeometry } from '../grid/paintingGrid.js';
 
-// 框架杆件尺寸（蓝图单位）: 切向宽度 / 径向厚度
-const FRAME_BAR_WIDTH = 30;
-const FRAME_BAR_THICKNESS = 20;
+// 框架截面缩放
+const FRAME_WORLD_SCALE = 100;
 
-// 同一十六进制色只创建一个 THREE.Color
-function makeHexColorCache() {
-  const cache = new Map();
-  return (hex) => {
-    let c = cache.get(hex);
-    if (!c) { c = new THREE.Color(hex); cache.set(hex, c); }
-    return c;
-  };
-}
+// 分段长度
+const FRAME_SEG_LENGTH = 300;
+
+// 框架网格 Z 范围
+const FRAME_MESH_Z_MIN = -0.0217;
+const FRAME_MESH_LENGTH = 1.0434;
+
+// style 到 mesh 下标的偏移
+const FRAME_STYLE_OFFSET = 1;
 
 /**
- * 节点: id、位置（已缩放、已按轨道姿态旋转）与颜色
- * @returns {{ids: Uint32Array, positions: Float32Array, colors: Uint32Array, count: number}}
+ * 节点: id、位置（已缩放、已按轨道姿态旋转）、材质/涂色信息
+ * @returns {{ids: Uint32Array, positions: Float32Array, paintRGBA: Float32Array, count: number}}
  */
 export function computeNodes(shData, orbit, scale) {
   const renderR = orbit.radius;
   const shQuat = _normQuat(orbit);
   const ids = [];
   const positions = [];
-  const colors = [];
+  const paintRGBA = [];
   if (shData.nodes) {
     for (let ni = 1; ni < shData.nodes.length; ni++) {
       const nd = shData.nodes[ni];
@@ -40,94 +39,139 @@ export function computeNodes(shData, orbit, scale) {
       const pos = _convertBP(d).multiplyScalar(renderR * scale);
       ids.push(nd.id);
       positions.push(pos.x, pos.y, pos.z);
-      colors.push(_toHexColor(nd.color, 0x60D6FD));
+      const c = nd.color;
+      // a 只是涂色标记，不是透明度
+      const paintedFlag = c && typeof c.a === 'number' ? c.a : 0;
+      if (paintedFlag > 0) {
+        const col = new THREE.Color((c.r << 16) | (c.g << 8) | c.b);
+        paintRGBA.push(col.r, col.g, col.b, 1);
+      } else {
+        paintRGBA.push(0, 0, 0, 0);
+      }
     }
   }
   return {
     ids: new Uint32Array(ids),
     positions: new Float32Array(positions),
-    colors: new Uint32Array(colors),
-    count: colors.length,
+    paintRGBA: new Float32Array(paintRGBA),
+    count: ids.length,
   };
 }
 
 /**
- * 框架杆件: 顶点、颜色、两组索引（外侧面 / 径向内侧面）与边类型表
+ * 框架杆件: 按段长切分，输出每种 style 的实例矩阵与涂色。
+ * 网格由主线程按 style 构建，这里只算实例变换。
  * @param {Map<number, THREE.Vector3>} nodeMap
- * @returns {{positions: Float32Array, colors: Float32Array, indices: Uint32Array,
- *   backIndices: Uint32Array, edgeTypes: Array<[string, number]>}}
+ * @param {number} orbitRadius  蓝图半径（不是缩放后的渲染半径）
+ * @returns {{instances: Array<{style:number,count:number,matrices:Float32Array,
+ *   paintRGBA:Float32Array}>, edgeTypes: Array<[string, number]>}}
  */
-export function computeFrames(shData, nodeMap, shPole, scale) {
+export function computeFrames(shData, nodeMap, shPole, scale, orbitRadius) {
   const ftMap = new Map();
-  const hexColor = makeHexColorCache();
-  const barVerts = [];
-  const barCols = [];
-  const barIdx = [];        // 外侧面 + 两个切向侧面（用框架自身的颜色）
-  const barBackIdx = [];    // 径向内侧面（朝球心，用恒星色）
+  const frameList = [];
+  const styleCounts = [0, 0, 0];
+  const radius = Number.isFinite(orbitRadius) && orbitRadius > 0 ? orbitRadius : 10000;
 
-  const halfW = (FRAME_BAR_WIDTH / 2) * scale;
-  const halfT = (FRAME_BAR_THICKNESS / 2) * scale;
-  const tv = new THREE.Vector3();
-  const buildBar = (pts, color) => {
-    const n = pts.length;
-    if (n < 2) return;
-    const base = barVerts.length / 3;
-    let prevT = null;
-    for (let i = 0; i < n; i++) {
-      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
-      const t = tv.subVectors(b, a);
-      if (t.lengthSq() < 1e-12) {
-        if (prevT) t.copy(prevT); else t.set(0, 1, 0);
-      } else {
-        t.normalize();
-        if (!prevT) prevT = t.clone();
-        else prevT.copy(t);
-      }
-      const rad = pts[i].clone().normalize();
-      const u = new THREE.Vector3().crossVectors(t, rad);
-      const bx = pts[i].x - rad.x * halfT, by = pts[i].y - rad.y * halfT, bz = pts[i].z - rad.z * halfT;
-      const tx = pts[i].x + rad.x * halfT, ty = pts[i].y + rad.y * halfT, tz = pts[i].z + rad.z * halfT;
-      const ux = u.x * halfW, uy = u.y * halfW, uz = u.z * halfW;
-      // 断面 4 点: 0/1 = 底部±u（径向内侧）, 2/3 = 顶部±u（径向外侧）
-      barVerts.push(bx + ux, by + uy, bz + uz);
-      barVerts.push(bx - ux, by - uy, bz - uz);
-      barVerts.push(tx + ux, ty + uy, tz + uz);
-      barVerts.push(tx - ux, ty - uy, tz - uz);
-      barCols.push(color.r, color.g, color.b, color.r, color.g, color.b, color.r, color.g, color.b, color.r, color.g, color.b);
-    }
-    for (let i = 0; i < n - 1; i++) {
-      const bi = base + i * 4, bj = bi + 4;
-      // 径向外侧面（顶面）
-      barIdx.push(bi + 3, bi + 2, bj + 2, bi + 3, bj + 2, bj + 3);
-      // 径向内侧面（底面）单独一组: 从壳体内侧看到的就是它，用恒星色
-      barBackIdx.push(bi + 0, bi + 1, bj + 1, bi + 0, bj + 1, bj + 0);
-      // 两个切向侧面
-      barIdx.push(
-        bi + 0, bj + 0, bj + 2, bi + 0, bj + 2, bi + 2,
-        bi + 1, bi + 3, bj + 3, bi + 1, bj + 3, bj + 1,
-      );
-    }
-  };
-  const re = (id1, id2, color, type = 0) => {
-    const k = _edgeKey(id1, id2);
-    if (ftMap.has(k)) return;
-    ftMap.set(k, type);
-    const f = nodeMap.get(id1), t = nodeMap.get(id2);
-    if (!f || !t) return;
-    const pts = (type === 1 && shPole) ? _gridArcPoints(f, t, 18, shPole) : _sphericalArcPoints(f, t, 18);
-    buildBar(pts, hexColor(color));
-  };
+  // 第一遍: 去重、按 style 统计段数
   if (shData.frames) {
     shData.frames.forEach(fr => {
       if (!fr) return;
-      re(fr.relation[0], fr.relation[1], _toHexColor(fr.color, 0x175473), fr.type);
+      const k = _edgeKey(fr.relation[0], fr.relation[1]);
+      if (ftMap.has(k)) return;
+      const type = fr.type ?? 0;
+      ftMap.set(k, type);
+      const a = nodeMap.get(fr.relation[0]);
+      const b = nodeMap.get(fr.relation[1]);
+      if (!a || !b) return;
+      const lenA = a.length();
+      const lenB = b.length();
+      if (lenA < 1e-9 || lenB < 1e-9) return;
+      const dot = THREE.MathUtils.clamp(a.dot(b) / (lenA * lenB), -1, 1);
+      const angle = Math.acos(dot);
+      const segCount = Math.max(2, Math.round(angle * radius / (FRAME_SEG_LENGTH * 2)) * 2);
+      const protoId = Number.isInteger(fr.style) ? fr.style : FRAME_STYLE_OFFSET;
+      const style = Math.max(0, Math.min(2, protoId - FRAME_STYLE_OFFSET));
+      const c = fr.color;
+      // a 只是涂色标记，不是透明度
+      const paintedFlag = c && typeof c.a === 'number' ? c.a : 0;
+      const paintColor = paintedFlag > 0 ? new THREE.Color((c.r << 16) | (c.g << 8) | c.b) : null;
+      frameList.push({ a, b, type, style, segCount, paintColor });
+      styleCounts[style] += segCount;
     });
   }
+
+  const batches = styleCounts.map((count, style) => count > 0 ? {
+    style,
+    count,
+    matrices: new Float32Array(count * 16),
+    paintRGBA: new Float32Array(count * 4),
+    cursor: 0,
+  } : null);
+
+  // 第二遍: 采样弧线，生成每段的实例矩阵
+  const m = new THREE.Matrix4();
+  const xAxis = new THREE.Vector3();
+  const yAxis = new THREE.Vector3();
+  const zAxis = new THREE.Vector3();
+  const rad = new THREE.Vector3();
+  const dir = new THREE.Vector3();
+  const scl = new THREE.Vector3();
+  const start = new THREE.Vector3();
+  const barScale = FRAME_WORLD_SCALE * scale;
+
+  for (const item of frameList) {
+    const batch = batches[item.style];
+    if (!batch) continue;
+    const pts = (item.type === 1 && shPole)
+      ? _gridArcPoints(item.a, item.b, item.segCount, shPole)
+      : _sphericalArcPoints(item.a, item.b, item.segCount);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i];
+      const p1 = pts[i + 1];
+      dir.subVectors(p1, p0);
+      const len = dir.length();
+      if (len < 1e-9) continue;
+      dir.divideScalar(len);
+      rad.copy(p0).normalize();
+      // 用径向做 up，投影到垂直于段方向，得到局部 Y；局部 X = Y × Z
+      yAxis.copy(rad).addScaledVector(dir, -rad.dot(dir));
+      if (yAxis.lengthSq() < 1e-12) yAxis.set(0, 1, 0);
+      yAxis.normalize();
+      xAxis.crossVectors(yAxis, dir).normalize();
+      zAxis.copy(dir);
+      m.makeBasis(xAxis, yAxis, zAxis);
+      // 把网格 Z 映射到段长的 1%–99%
+      const zScale = len * 0.98 / FRAME_MESH_LENGTH;
+      const zOffset = len * 0.01 - zScale * FRAME_MESH_Z_MIN;
+      start.copy(p0).addScaledVector(dir, zOffset);
+      m.setPosition(start);
+      scl.set(barScale, barScale, zScale);
+      m.scale(scl);
+      const o = batch.cursor * 16;
+      for (let k = 0; k < 16; k++) batch.matrices[o + k] = m.elements[k];
+      const c = batch.cursor * 4;
+      if (item.paintColor) {
+        batch.paintRGBA[c] = item.paintColor.r;
+        batch.paintRGBA[c + 1] = item.paintColor.g;
+        batch.paintRGBA[c + 2] = item.paintColor.b;
+        batch.paintRGBA[c + 3] = 1;
+      } else {
+        batch.paintRGBA[c] = 0;
+        batch.paintRGBA[c + 1] = 0;
+        batch.paintRGBA[c + 2] = 0;
+        batch.paintRGBA[c + 3] = 0;
+      }
+      batch.cursor++;
+    }
+  }
+
   return {
-    positions: new Float32Array(barVerts),
-    colors: new Float32Array(barCols),
-    indices: new Uint32Array(barIdx),
-    backIndices: new Uint32Array(barBackIdx),
+    instances: batches.filter(Boolean).map(b => ({
+      style: b.style,
+      count: b.cursor,
+      matrices: b.matrices,
+      paintRGBA: b.paintRGBA,
+    })),
     edgeTypes: [...ftMap],
   };
 }
@@ -186,7 +230,7 @@ export async function computeLayerGeometry(shData, orbit, scale) {
       nodes.positions[i * 3], nodes.positions[i * 3 + 1], nodes.positions[i * 3 + 2]));
   }
 
-  const frames = computeFrames(shData, nodeMap, shPole, scale);
+  const frames = computeFrames(shData, nodeMap, shPole, scale, orbit.radius);
   const cells = computeShellCellBuckets(
     shData, nodeMap, shPole, new Map(frames.edgeTypes), orbit, scale);
   const painting = await computePainting(shData, orbit, scale);

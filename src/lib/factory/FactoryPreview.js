@@ -1368,7 +1368,7 @@ class FactoryPreview {
 
   /**
    * 建筑图标层（图标 id 空间见 markup/iconCatalog.ts，配方图标 id = 20000 + recipeId）:
-   * 制造类 → 配方图标（id = 20000 + recipeId，自带 / 主产物图标见 markup/recipeIconProducts.ts）→ 504（无配方）；
+   * 制造类 → 配方图标（id = 20000 + recipeId，主产物图标查 RECIPE_DATA）→ 504（无配方）；
    * 研究站 researchMode 2 → 704；传送带取 parameters.iconId；
    * 分拣器取 filterId；射线接收站按模式；物流配送器 / 四向分流器用本体图标 + filterId 角标；其余用自身 itemId。
    * 物流塔（见 stationPanelSlots）摆「塔内」卡片，替掉建筑自己的图标。

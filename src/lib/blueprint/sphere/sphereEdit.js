@@ -1,4 +1,4 @@
-import { blueprintTypeName, getBodyTypeId, orbitParamsToQuaternion } from './sphereUtils.js';
+import { blueprintTypeName, getBodyTypeId, orbitParamsToQuaternion, hexToRgba } from './sphereUtils.js';
 import { cloneData, toPlainCopy } from '../clonePlain.js';
 
 // 将无序节点对编码为字符串 key，用于集合查找
@@ -188,6 +188,145 @@ function extractStructure(blueprint, type){
 };
 
 /**
+ * 将 RGBA 颜色转换为稳定的查找键
+ * @param {{r: number, g: number, b: number, a: number}} color
+ * @returns {string}
+ */
+function rgbaColorKey(color) {
+  return color.a === 0 ? '默认颜色' : `${color.r},${color.g},${color.b},${color.a}`;
+}
+
+/**
+ * 按 RGBA 值去重颜色，保留首次出现的顺序
+ * @param {(object|null)[]} colors - RGBA 颜色数组
+ * @returns {(object|null)[]} 去重后的颜色数组
+ */
+function deduplicateColors(colors) {
+  if (!Array.isArray(colors)) {
+    throw new TypeError('颜色列表必须是数组');
+  }
+
+  const seen = new Set();
+  const result = [];
+  for (const color of colors) {
+    if (color == null) {
+      if (!seen.has(null)) {
+        seen.add(null);
+        result.push(null);
+      }
+      continue;
+    }
+    const key = rgbaColorKey(color);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(cloneData(color));
+  }
+  return result;
+}
+
+/**
+ * 从壳层中提取节点、框架和壳面的去重颜色列表
+ * @param {object} shell - 壳层对象
+ * @returns {{节点: (object|null)[], 框架: (object|null)[], 壳面: (object|null)[]}}
+ */
+function extractShellColorList(shell) {
+  if (!shell || typeof shell !== 'object') {
+    throw new TypeError('壳层数据必须是对象');
+  }
+
+  const extractColors = (components) => {
+    if (!Array.isArray(components)) return [];
+    return deduplicateColors(components.slice(1)
+      .filter(component => component != null)
+      .map(component => component.color));
+  };
+
+  return {
+    节点: extractColors(shell.nodes),
+    框架: extractColors(shell.frames),
+    壳面: extractColors(shell.faces),
+  };
+}
+
+/**
+ * 从多层戴森壳对象中提取节点、框架和壳面的去重颜色列表
+ * @param {object} dysonShell - 多层戴森壳对象
+ * @returns {{节点: (object|null)[], 框架: (object|null)[], 壳面: (object|null)[]}}
+ */
+function extractDysonShellColorList(dysonShell) {
+  if (!dysonShell || typeof dysonShell !== 'object') {
+    throw new TypeError('戴森壳数据必须是对象');
+  }
+  if (!Array.isArray(dysonShell.shells)) {
+    throw new TypeError('戴森壳数据缺少壳层列表');
+  }
+
+  const colors = { 节点: [], 框架: [], 壳面: [] };
+  for (const shell of dysonShell.shells) {
+    if (shell == null) continue;
+    const shellColors = extractShellColorList(shell);
+    colors.节点.push(...shellColors.节点);
+    colors.框架.push(...shellColors.框架);
+    colors.壳面.push(...shellColors.壳面);
+  }
+
+  return {
+    节点: deduplicateColors(colors.节点),
+    框架: deduplicateColors(colors.框架),
+    壳面: deduplicateColors(colors.壳面),
+  };
+}
+
+/**
+ * 在蓝图副本中按 RGBA 映射替换单层壳或多层壳颜色
+ * @param {object} blueprint - 原始蓝图
+ * @param {Record<string, object>} entries - 原颜色及十六进制目标颜色
+ * @param {{node:boolean, frame:boolean, face:boolean}} options
+ * @returns {object} 替换后的蓝图副本
+ */
+function replaceBlueprintShellColors(blueprint, entries, options = {}) {
+  if (!blueprint || typeof blueprint !== 'object') {
+    throw new TypeError('蓝图数据必须是对象');
+  }
+  if (!entries || typeof entries !== 'object') {
+    throw new TypeError('颜色替换项必须是对象');
+  }
+
+  const bodyTypeId = getBodyTypeId(blueprint);
+  if (![1, 2, 4].includes(bodyTypeId)) {
+    throw new Error('蓝图不包含戴森壳');
+  }
+
+  const copy = cloneData(blueprint);
+  const shells = bodyTypeId === 1
+    ? [copy.singleShell]
+    : copy.dysonShell?.shells;
+  if (!Array.isArray(shells)) {
+    throw new TypeError('蓝图缺少数据');
+  }
+
+  for (const shell of shells) {
+    if (!shell) continue;
+    const lists = [];
+    if (options.node) lists.push(shell.nodes);
+    if (options.frame) lists.push(shell.frames);
+    if (options.face) lists.push(shell.faces);
+    for (const list of lists) {
+      if (!Array.isArray(list)) continue;
+      for (let i = 1; i < list.length; i += 1) {
+        const component = list[i];
+        if (!component) continue;
+        const color = component.color;
+        const Key = color === null ? '默认颜色' : rgbaColorKey(color);
+        component.color = entries[Key] ?? color;
+      }
+    }
+  }
+
+  return copy;
+}
+
+/**
  * 自动轨道弹射用的云轨道参数: [倾角, 条数, 起始交升点]
  * 每条镜像出一条（倾角 180-x、交升点 +180），一共 20 条
  */
@@ -282,4 +421,4 @@ function copyShell(blueprint, options = {}) {
   return result;
 }
 
-export { cleanOrphanedComponents, compactAndRebuildIds, extractSingleShell, extractStructure, copyShell };
+export { cleanOrphanedComponents, compactAndRebuildIds, extractSingleShell, extractShellColorList, extractDysonShellColorList, replaceBlueprintShellColors, extractStructure, copyShell, deduplicateColors, rgbaColorKey };

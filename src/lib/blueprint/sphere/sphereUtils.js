@@ -61,6 +61,20 @@ function hsvaToRgba(h, s, v, a = 1.0) {
   };
 }
 
+// 将 #RRGGBB 颜色转换为 0-255 范围的 RGBA 对象
+function hexToRgba(hex) {
+  if (typeof hex !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    throw new TypeError('颜色格式必须为 #RRGGBB');
+  }
+
+  return {
+    r: Number.parseInt(hex.slice(1, 3), 16),
+    g: Number.parseInt(hex.slice(3, 5), 16),
+    b: Number.parseInt(hex.slice(5, 7), 16),
+    a: 255,
+  };
+}
+
 // 将轨道的四元数转换为倾角和升交点经度
 function quaternionToOrbitParams(orbit) {
   const x = orbit.x, y = orbit.y, z = orbit.z, w = orbit.w;
@@ -170,30 +184,42 @@ function countPaintedCells(colors) {
 }
 
 /**
- * 计算纬度限制：所有节点最大纬度（度）向下取整
- * @param {object} blueprint - 蓝图对象
- * @returns {number} 纯戴森云（无壳数据）时为 0
+ * 计算单壳纬度限制：所有节点最大纬度（度）向下取整
+ * @param {object} shell - 单壳数据
+ * @returns {number} 无壳数据时为 0
  */
-function calcLatLimit(blueprint) {
-  const shells = blueprint.typeId === 1 && blueprint.singleShell
-    ? [blueprint.singleShell]
-    : blueprint.dysonShell?.shells ?? [];
+function calcSingleShellLatLimit(shell) {
   let maxLat = 0;
-  for (const shell of shells) {
-    if (!shell) continue;
-    const nodes = shell.nodes ?? [];
-    for (let i = 1; i < nodes.length; i += 1) {
-      const node = nodes[i];
-      if (!node) continue;
-      const { lat } = coordToLatLon(node.coordinate);
-      if (Math.abs(lat) > maxLat) maxLat = Math.abs(lat);
-    }
+  const nodes = shell?.nodes ?? [];
+  for (let i = 1; i < nodes.length; i += 1) {
+    const node = nodes[i];
+    if (!node) continue;
+    const { lat } = coordToLatLon(node.coordinate);
+    if (Math.abs(lat) > maxLat) maxLat = Math.abs(lat);
   }
   return Math.floor(maxLat);
 }
 
+/**
+ * 计算纬度限制：所有节点最大纬度（度）向下取整
+ * @param {object} blueprint - 蓝图对象
+ * @returns {number} 无壳数据时为 0
+ */
+function calcLatLimit(blueprint) {
+  if (blueprint.typeId === 1) {
+    return calcSingleShellLatLimit(blueprint.singleShell);
+  }
+
+  let maxLat = 0;
+  for (const shell of blueprint.dysonShell?.shells ?? []) {
+    maxLat = Math.max(maxLat, calcSingleShellLatLimit(shell));
+  }
+  return maxLat;
+}
+
 export {
   hsvaToRgba,
+  hexToRgba,
   quaternionToOrbitParams,
   orbitParamsToQuaternion,
   latLonToCoord,
@@ -202,5 +228,6 @@ export {
   getBodyTypeId,
   gridTypeName,
   countPaintedCells,
+  calcSingleShellLatLimit,
   calcLatLimit,
 };

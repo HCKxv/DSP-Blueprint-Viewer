@@ -1,4 +1,4 @@
-import { recipeIconProduct } from './recipeIconProducts.ts'
+import { RECIPE_DATA } from '../blueprint/factory/factoryRecipes.js'
 
 /** 选择器里的一项 */
 export interface IconRef {
@@ -29,11 +29,20 @@ for (const [path, url] of Object.entries(files)) {
   if (Number.isInteger(id)) ICONS[id] = url
 }
 
-/** 图标 URL；没有对应图标时返回空串（配方图标 id 先查自带图标，再按映射表落到主产物图标） */
+/** 配方图标 id = 20000 + 配方 id） */
+const RECIPE_ICON_BASE = 20000
+
+/** 配方图标 id → 主产物 id */
+function recipeProductOf(iconId: number): number {
+  if (iconId < RECIPE_ICON_BASE || iconId >= 40000) return 0
+  return RECIPE_DATA[iconId - RECIPE_ICON_BASE]?.out?.[0]?.id ?? 0
+}
+
+/** 图标 URL；没有对应图标时返回空串（配方图标先查自带图标，没有就落到 RECIPE_DATA 的主产物图标） */
 export function itemIconUrl(itemId: number): string {
   const url = ICONS[itemId]
   if (url) return url
-  const product = recipeIconProduct(itemId)
+  const product = recipeProductOf(itemId)
   return product ? (ICONS[product] ?? '') : ''
 }
 

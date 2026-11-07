@@ -11,8 +11,8 @@
  *   5. setRotationEnabled(enabled)   旋转开关
  *   6. setRotationSpeed(speed)       转速修改（建议 0.01 慢 / 0.05 中 / 0.20 快）
  *   7. setSunColor(luminosity)       根据光度系数更新恒星颜色
- *   8. setQuality(level)             画质档位 ('low' | 'high')
- *   9. setBackgroundMode(mode)       背景切换 ('plain'=纯色 | 'star'=星空)
+ *   8. setBackgroundMode(mode)       背景切换 ('plain'=纯色 | 'star'=星空)
+ *   9. setModel(model)               模型精度 ('detailed' | 'simplified')
  *  10. exportImage(scale)            导出当前预览画面（返回 PNG 画布）
  *
  *   辅助:
@@ -51,10 +51,9 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+
 import { buildCloudOrbit } from './buildCloud.js';
-import { buildShellLayer, buildNodeGeometries, cancelLayerWorker } from './buildShell.js';
+import { buildShellLayer, buildShellSimpleLayer, buildNodeGeometries, cancelLayerWorker } from './buildShell.js';
 import { ensureShellPatternTextures, onShellPatternReady, applyLayerPainting } from './shellPattern.js';
 import { getStarColors } from './starColors.js';
 import { createStarfield, disposeStarfield, STARFIELD_BG_COLOR } from './starfield.js';
@@ -66,11 +65,7 @@ const STARFIELD_SEED = 20260214;
 const BLOOM_STRENGTH = 0.4;
 const BLOOM_RADIUS = 0.3;
 const BLOOM_THRESHOLD = 0.8;
-// 画质档位
-const QUALITY_PRESETS = {
-  low: { pixelRatio: 1, bloom: false, msaa: 0, fxaa: false },
-  high: { pixelRatio: 2, bloom: true, msaa: 4, fxaa: true },
-};
+const MAX_PIXEL_RATIO = 2;
 
 
 /** 让出主线程一帧（顺带让浏览器完成绘制），用于把大场景的构建切成多帧 */
@@ -105,8 +100,6 @@ class DysonSpherePreview {
     this._resizeObserver = null;
     this._composer = null;
     this._bloomPass = null;
-    this._fxaaPass = null;
-    this._quality = 'high';
     this._renderToken = 0;
     this._loadingEl = null;
 
@@ -114,6 +107,8 @@ class DysonSpherePreview {
 
     this._nodeGeoms = null;
     this._sharedBackMaterial = null;
+    this._starEmissionColor = null;
+    this._model = 'detailed';
 
     // 绑定的事件回调引用，用于 dispose
     this._onBlur = null;
@@ -127,9 +122,9 @@ class DysonSpherePreview {
   init(canvas) {
     if (this._renderer) this.dispose();
 
-    // 节点（简化模型）: 主体圆柱 + 朝太阳方向的细圆柱 + 朝外发光端面
     if (!this._nodeGeoms) this._nodeGeoms = buildNodeGeometries();
     if (!this._sharedBackMaterial) this._sharedBackMaterial = new THREE.MeshBasicMaterial({ color: getStarColors(1.0).back, side: THREE.BackSide, depthWrite: true });
+    if (!this._starEmissionColor) this._starEmissionColor = sunColorOf(getStarColors(1.0).core);
 
     // 图案贴图异步加载: 提前开始，到位后强制重画一帧
     ensureShellPatternTextures();
@@ -144,11 +139,11 @@ class DysonSpherePreview {
     this._camera.position.set(0, 1.8, -3.2);
 
     this._renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
-    this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
     this._renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
 
     // 后处理链
-    this._buildComposer();
+    this._applyPipeline();
 
     this._controls = new OrbitControls(this._camera, canvas);
     this._controls.enableDamping = true;
@@ -230,7 +225,8 @@ class DysonSpherePreview {
     const token = (this._renderToken = (this._renderToken || 0) + 1);
     // 中止上一次构建里在飞的层: Worker 单线程，不终止的话新构建的 postMessage 只能排队
     cancelLayerWorker();
-    // 先建到暂存 group，全部完成后一次性换上：中途界面保持原样（或空白），不出现半成品
+    // 先清空旧场景，再建到暂存 group，成功后一次性换上
+    this.clearScene();
     const staging = new THREE.Group();
     const stagedShells = [];
     const stagedVis = new Map();
@@ -291,7 +287,9 @@ class DysonSpherePreview {
           const gv = shell.visibility ? shell.visibility.inGame[orbit.id] : true;
           done += 1;
           this._setLoading(true, `正在构建壳层 ${done}/${total}`);
-          const layer = await buildShellLayer(shData, orbit, this._currentScale, this._nodeGeoms, this._sharedBackMaterial);
+          const layer = this._model === 'simplified'
+            ? await buildShellSimpleLayer(shData, orbit, this._currentScale, this._sharedBackMaterial)
+            : await buildShellLayer(shData, orbit, this._currentScale, this._nodeGeoms, this._sharedBackMaterial, this._starEmissionColor);
           layer.group.visible = gv;
           // 涂色
           const paintCube = applyLayerPainting(this._renderer, layer, 1536);
@@ -313,7 +311,6 @@ class DysonSpherePreview {
         this._disposeTree(staging);
         return;
       }
-      this.clearScene();
       this._shellGroups = stagedShells;
       this._visObjects = stagedVis;
       this._rootGroup.add(staging);
@@ -350,6 +347,14 @@ class DysonSpherePreview {
     const obj = this._visObjects.get(key);
     if (obj) obj.visible = visible;
     this._needsRender = true;
+  }
+
+  /** @param {'detailed'|'simplified'} model */
+  setModel(model) {
+    const next = model === 'simplified' ? 'simplified' : 'detailed';
+    if (next === this._model) return;
+    this._model = next;
+    this._applyPipeline();
   }
 
   // ─── 4. 刻度显示开关 ───────────────────────────────────────
@@ -394,6 +399,8 @@ class DysonSpherePreview {
 
     if (this._originSphere) this._originSphere.material.color.copy(sunColor);
     if (this._starGlowInner) this._starGlowInner.material.color.copy(sunColor);
+    if (!this._starEmissionColor) this._starEmissionColor = new THREE.Color();
+    this._starEmissionColor.copy(sunColor);
     this._sharedBackMaterial.color.copy(new THREE.Color(back));
     // 背面的克隆材质（带图案补丁）也要跟着换色
     for (const sg of this._shellGroups) {
@@ -496,38 +503,37 @@ class DysonSpherePreview {
 
   // ─── 生命周期 ──────────────────────────────────────────────
 
-  /** 按当前画质档位（重）建后处理链: MSAA/FXAA 变化时需要重建 */
+  /** 简化模型直接渲染，精细模型启用完整后处理。 */
+  _applyPipeline() {
+    if (!this._renderer) return;
+    if (this._model === 'simplified') {
+      this._teardownComposer();
+      this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
+    } else {
+      this._buildComposer();
+    }
+    this._needsRender = true;
+  }
+
+  /** 构建后处理链。 */
   _buildComposer() {
-    const q = QUALITY_PRESETS[this._quality] ?? QUALITY_PRESETS.high;
-    const ratio = Math.min(window.devicePixelRatio, q.pixelRatio);
+    const ratio = Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO);
     const w = this._canvas.clientWidth || 1;
     const h = this._canvas.clientHeight || 1;
     this._renderer.setPixelRatio(ratio);
     // 重建前必须自己释放旧的 pass
     this._teardownComposer();
-    // 档位没有任何后处理需求（低画质: 无泛光、无 FXAA）时不搭 composer:
-    if (!q.bloom && !q.fxaa) {
-      this._needsRender = true;
-      return;
-    }
     try {
-      // HalfFloat + samples
-      const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: q.msaa });
+      // HalfFloat + 4x MSAA
+      const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4, stencilBuffer: true });
       this._composer = new EffectComposer(this._renderer, rt);
       this._composer.setPixelRatio(ratio);
       this._composer.setSize(w, h);
       this._composer.addPass(new RenderPass(this._scene, this._camera));
-      if (q.bloom) {
-        this._bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD);
-        this._composer.addPass(this._bloomPass);
-      }
-      // OutputPass 负责最终的色调映射与 sRGB 输出（用了 composer 就不能直接靠 renderer 输出）
+      this._bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD);
+      this._composer.addPass(this._bloomPass);
+      // OutputPass 负责最终的色调映射与 sRGB 输出
       this._composer.addPass(new OutputPass());
-      if (q.fxaa) {
-        this._fxaaPass = new ShaderPass(FXAAShader);
-        this._fxaaPass.material.uniforms.resolution.value.set(1 / (w * ratio), 1 / (h * ratio));
-        this._composer.addPass(this._fxaaPass);   // FXAA 在 sRGB 输出之后做
-      }
     } catch (err) {
       console.warn('[preview] 后处理初始化失败，回退为直接渲染:', err);
       this._teardownComposer();
@@ -539,20 +545,8 @@ class DysonSpherePreview {
   _teardownComposer() {
     this._composer?.dispose();
     this._bloomPass?.dispose();
-    this._fxaaPass?.dispose();
     this._composer = null;
     this._bloomPass = null;
-    this._fxaaPass = null;
-  }
-
-  /**
-   * 切换画质档位
-   * @param {'low'|'high'} level
-   */
-  setQuality(level) {
-    if (!QUALITY_PRESETS[level] || level === this._quality) return;
-    this._quality = level;
-    this._buildComposer();
   }
 
   /** 出图: 有 composer 时走泛光后处理，否则直接渲染 */
@@ -567,11 +561,6 @@ class DysonSpherePreview {
     if (this._canvas.width !== w || this._canvas.height !== h) {
       this._renderer.setSize(w, h, false);
       if (this._composer) this._composer.setSize(w, h);
-      // FXAA 需要知道实际像素尺寸
-      if (this._fxaaPass) {
-        const r = this._renderer.getPixelRatio();
-        this._fxaaPass.material.uniforms.resolution.value.set(1 / (w * r), 1 / (h * r));
-      }
     }
     this._camera.aspect = w / h;
     this._camera.updateProjectionMatrix();
@@ -632,9 +621,10 @@ class DysonSpherePreview {
     this._originSphere = null;
     this._starGlowInner = null;
     if (this._sharedBackMaterial) { this._sharedBackMaterial.dispose(); this._sharedBackMaterial = null; }
+    this._starEmissionColor = null;
     if (this._nodeGeoms) {
-      this._nodeGeoms.body.dispose();
-      this._nodeGeoms.cap.dispose();
+      this._nodeGeoms.body?.dispose?.();
+      this._nodeGeoms.cap?.dispose?.();
       this._nodeGeoms = null;
     }
     this._setLoading(false);
@@ -652,14 +642,17 @@ class DysonSpherePreview {
     const loop = () => {
       this._animFrameId = requestAnimationFrame(loop);
       const dt = Math.min(this._clock.getDelta(), 0.1);
-      if (this._shellRotationEnabled) {
-        this._needsRender = true; // 旋转中持续渲染
+      if (this._shellRotationEnabled && this._shellGroups.length) {
         const maxR = this._currentScale > 0 ? 1 / this._currentScale : 1;
+        let hasVisibleShell = false;
         for (const sg of this._shellGroups) {
+          if (!sg.group.visible) continue;
+          hasVisibleShell = true;
           const omega = this._shellSpeed * maxR / sg.radius;
           rotTmp.setFromAxisAngle(sg.pole, omega * dt);   // 复用临时四元数，避免每帧分配
           sg.group.quaternion.premultiply(rotTmp);
         }
+        if (hasVisibleShell) this._needsRender = true; // 只有可见壳层旋转时才持续渲染
       }
       this._controls.update(); // 处理阻尼惯性（change 事件会置脏）
       // 静止且无交互/变化时跳过渲染（省电）

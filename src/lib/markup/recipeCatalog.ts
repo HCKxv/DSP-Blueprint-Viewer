@@ -5,7 +5,7 @@ import { RECIPE_DATA, recipeName, recipePage } from '../blueprint/factory/factor
 /**
  * 配方库: 把配方按游戏配方选择窗的两个分类（物品 / 建筑）分组，供配方选择器显示
  *
- * 配方图标 id = 20000 + 配方id（见 markup/recipeIconProducts.ts）。
+ * 配方图标 id = 20000 + 配方id（见 markup/itemIcons.ts）。
  */
 
 /** 配方 id 段 → 图标 id */

@@ -28,6 +28,7 @@ export interface StatNode {
   count?: number
   children?: StatNode[]
   button?: StatNodeAction
+  contextMenuActions?: StatNodeAction[]
   toggle?: StatNodeToggle
 }
 
@@ -38,6 +39,7 @@ export interface BuildStatsTreeHandlers {
   onExportBlueprint?: () => void
   onCopyToMultiLayer?: () => void
   onLayerVisible?: (type: 'shell' | 'cloud', id: number, checked: boolean) => void
+  onChangeColor?: () => void
 }
 
 /** 轨道 */
@@ -102,6 +104,7 @@ export function buildStatsTree(
   const onLayerVisible = handlers.onLayerVisible
   const onExportBlueprint = handlers.onExportBlueprint
   const onCopyToMultiLayer = handlers.onCopyToMultiLayer
+  const onChangeColor = handlers.onChangeColor
 
   if (parsed?.validFlag === false) {
     nodes.push({
@@ -156,11 +159,11 @@ export function buildStatsTree(
             : undefined,
         }
       }),
-      button: onExportStructure && shell
-        ? {
+      contextMenuActions: onExportStructure && shell
+        ? [{
             label: '提取戴森云',
             onClick: () => onExportStructure('cloud'),
-          }
+          }]
         : undefined,
     })
   }
@@ -175,6 +178,12 @@ export function buildStatsTree(
             label: '生成多层壳',
             onClick: () => onCopyToMultiLayer(),
           }
+        : undefined,
+      contextMenuActions: onChangeColor
+        ? [{
+            label: '更改颜色',
+            onClick: () => onChangeColor(),
+          }]
         : undefined,
     })
   } else if (shell?.orbitList) {
@@ -194,11 +203,11 @@ export function buildStatsTree(
         toggle: onLayerVisible
           ? { checked: gv, onChange: (checked: boolean) => onLayerVisible('shell', orbit.id, checked) }
           : undefined,
-        button: onExportShell
-          ? {
-              label: '提取',
+        contextMenuActions: onExportShell
+          ? [{
+              label: '提取壳层 #' + orbit.id,
               onClick: () => onExportShell(orbit.id),
-            }
+            }]
           : undefined,
       }
     })
@@ -207,12 +216,20 @@ export function buildStatsTree(
       title: '壳层',
       count: orbits.length,
       children: items,
-      button: onExportStructure && cloud
-        ? {
-            label: '提取戴森壳',
-            onClick: () => onExportStructure('shell'),
-          }
-        : undefined,
+      contextMenuActions: [
+        ...(onExportStructure && cloud
+          ? [{
+              label: '提取戴森壳',
+              onClick: () => onExportStructure('shell'),
+            }]
+          : []),
+        ...(onChangeColor
+          ? [{
+              label: '更改颜色',
+              onClick: () => onChangeColor(),
+            }]
+          : []),
+      ],
     })
   }
 

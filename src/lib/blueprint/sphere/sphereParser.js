@@ -79,7 +79,7 @@ async function parseBlueprintString(blueprintString) {
     const errMessage = err instanceof Error ? err.message : String(err);
     throw new Error(
       `${errMessage}（${validFlag
-        ? `蓝图版本 ${header.version}，适配版本 ${ADAPTED_VERSION}`
+        ? `蓝图版本 ${header.version}`
         : '签名不符，蓝图已被修改'
       }）`,
       { cause: err },

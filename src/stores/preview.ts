@@ -18,7 +18,7 @@ export interface DysonPreview {
   setRotationSpeed(speed: number): void
   setSunColor(luminosity: number): void
   setBackgroundMode(mode: 'plain' | 'star'): void
-  setQuality(level: 'low' | 'high'): void
+  setModel(model: 'detailed' | 'simplified'): void
 }
 
 const toast = useToast()
@@ -45,10 +45,12 @@ const store = reactive({
   rotateEnabled: true,
   speed: 0.05,
   background: 'plain' as 'plain' | 'star',
-  quality: 'high' as 'low' | 'high',
+  model: 'detailed' as 'detailed' | 'simplified',
   menuCollapsed: true,
 
   showCopyShellModal: false,
+  showColorReplaceModal: false,
+  showGenerateBlueprintModal: false,
 })
 
 // ─────────────────────────────────────────────────────────────
@@ -71,7 +73,7 @@ function loadDisplaySettings() {
   if (typeof data.rotateEnabled === 'boolean') store.rotateEnabled = data.rotateEnabled
   if (data.speed === 0.01 || data.speed === 0.05 || data.speed === 0.2) store.speed = data.speed
   if (data.background === 'plain' || data.background === 'star') store.background = data.background
-  if (data.quality === 'low' || data.quality === 'high') store.quality = data.quality
+  if (data.model === 'detailed' || data.model === 'simplified') store.model = data.model
 }
 
 /** 将显示设置写入 localStorage */
@@ -82,7 +84,7 @@ function saveDisplaySettings() {
       rotateEnabled: store.rotateEnabled,
       speed: store.speed,
       background: store.background,
-      quality: store.quality,
+      model: store.model,
     }))
   } catch {
     /* localStorage 不可用（隐私模式等）时忽略 */
@@ -93,7 +95,7 @@ loadDisplaySettings()
 
 // 显示设置变化时自动保存
 watch(
-  () => [store.gridVisible, store.rotateEnabled, store.speed, store.background] as const,
+  () => [store.gridVisible, store.rotateEnabled, store.speed, store.background, store.model] as const,
   saveDisplaySettings,
 )
 
@@ -111,7 +113,7 @@ export function setPreview(instance: DysonPreview | null) {
   instance.setRotationEnabled(store.rotateEnabled)
   instance.setRotationSpeed(store.speed)
   instance.setBackgroundMode(store.background)
-  instance.setQuality(store.quality)
+  instance.setModel(store.model)
 
   instance.setSunColor(clampLum(store.luminosity))
   if (store.parsed) {
@@ -187,6 +189,7 @@ function buildTree(parsed: Record<string, any>, powerResult: Record<string, any>
     onExportBlueprint: exportBlueprint,
     onCopyToMultiLayer: openCopyShellModal,
     onLayerVisible: setLayerVisible,
+    onChangeColor: openColorReplaceModal,
   })
 }
 
@@ -323,6 +326,26 @@ function closeCopyShellModal() {
   store.showCopyShellModal = false
 }
 
+/** 打开颜色替换弹窗 */
+function openColorReplaceModal() {
+  store.showColorReplaceModal = true
+}
+
+/** 关闭颜色替换弹窗 */
+export function closeColorReplaceModal() {
+  store.showColorReplaceModal = false
+}
+
+/** 打开生成蓝图弹窗 */
+export function openGenerateBlueprintModal() {
+  store.showGenerateBlueprintModal = true
+}
+
+/** 关闭生成蓝图弹窗 */
+export function closeGenerateBlueprintModal() {
+  store.showGenerateBlueprintModal = false
+}
+
 /** 提取戴森壳或云（复制到剪贴板） */
 async function exportStructure(type:'shell'|'cloud') {
   const parsed = store.parsed
@@ -380,11 +403,11 @@ export function setBackground(mode: 'plain' | 'star') {
   preview.value?.setBackgroundMode(mode)
 }
 
-/** 切换画质档位 */
-export function setQuality(level: 'low' | 'high') {
-  store.quality = level
-  preview.value?.setQuality(level)
-  saveDisplaySettings()
+/** 模型精度切换 */
+export function setModel(model: 'detailed' | 'simplified') {
+  store.model = model
+  preview.value?.setModel(model)
+  if (store.parsed) preview.value?.render(toRaw(store.parsed))
 }
 
 /** 处理拖放得到的蓝图文本/文件内容，校验后自动解析 */

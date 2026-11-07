@@ -8,8 +8,9 @@ import {
   setRotationEnabled,
   setRotationSpeed,
   setBackground,
-  setQuality,
+  setModel,
 } from '../../stores/preview'
+import powerIcon from '../../assets/icons/signal/503.png'
 
 function onSpeedChange(e: Event) {
   setRotationSpeed(parseFloat((e.target as HTMLSelectElement).value) || 0.05)
@@ -20,16 +21,20 @@ function onBackgroundChange(e: Event) {
   setBackground(v === 'star' ? 'star' : 'plain')
 }
 
-function onQualityChange(e: Event) {
+function onModelChange(e: Event) {
   const v = (e.target as HTMLSelectElement).value
-  setQuality(v === 'low' ? 'low' : 'high')
+  setModel(v === 'simplified' ? 'simplified' : 'detailed')
 }
+
 </script>
 
 <template>
   <!-- 发电量 -->
   <div class="power-panel">
-    <div class="power-main">⚡ <span>{{ store.powerText }}</span></div>
+    <div class="power-main">
+      <img class="power-icon" :src="powerIcon" alt="" />
+      <span>{{ store.powerText }}</span>
+    </div>
   </div>
 
   <!-- 设置菜单 -->
@@ -84,16 +89,10 @@ function onQualityChange(e: Event) {
       <div class="menu">
         显示:
         <div class="menu">
-          <div class="menu">画质
-            <select class="speed-select" :value="store.quality" @change="onQualityChange">
-              <option value="low">低</option>
-              <option value="high">高</option>
-            </select>
-          </div>
-          <div class="menu">背景
+          <div class="menu">
             <select class="speed-select" :value="store.background" @change="onBackgroundChange">
-              <option value="plain">纯色</option>
-              <option value="star">星空</option>
+              <option value="plain">纯色背景</option>
+              <option value="star">星空背景</option>
             </select>
           </div>
           <label>
@@ -111,6 +110,13 @@ function onQualityChange(e: Event) {
           </div>
         </div>
       </div>
+      <div class="menu">
+        模型:
+        <select class="speed-select" :value="store.model" @change="onModelChange">
+          <option value="detailed">精细模型</option>
+          <option value="simplified">简化模型</option>
+        </select>
+      </div>
     </div>
   </div>
 </template>
@@ -124,10 +130,20 @@ function onQualityChange(e: Event) {
 }
 
 .power-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 2.2rem;
   font-weight: 700;
   color: var(--warn);
   line-height: 1.2;
+}
+
+.power-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  object-fit: contain;
 }
 
 .menu-header {

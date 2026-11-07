@@ -1,16 +1,24 @@
 <script setup lang="ts">
 import type { StatNode } from './statsTree'
 
-defineProps<{ node: StatNode }>()
+const props = defineProps<{ node: StatNode }>()
+const emit = defineEmits<{
+  contextmenu: [node: StatNode, event: MouseEvent]
+}>()
 
 function onToggle(node: StatNode, e: Event) {
   const checked = (e.target as HTMLInputElement).checked
   node.toggle?.onChange(checked)
 }
+
+function onContextMenu(event: MouseEvent) {
+  event.stopPropagation()
+  emit('contextmenu', props.node, event)
+}
 </script>
 
 <template>
-  <div class="stat-box">
+  <div class="stat-box" @contextmenu="onContextMenu">
     <!-- 标题行 -->
     <div class="stat-title-row">
       <span class="stat-title">
