@@ -119,9 +119,9 @@ const hasContent = computed(() => segments.value.some((segment) => {
   overflow-y: auto;
   padding: 3px 6px;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  background: var(--bg-slot);
-  color: var(--fg-value);
+  border-radius: var(--radius-xs);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font-size: 14px;
   line-height: 20px;
   white-space: normal;
@@ -170,6 +170,6 @@ const hasContent = computed(() => segments.value.some((segment) => {
 }
 
 .todo-text-empty {
-  color: #8fa3c8;
+  color: var(--fg-muted);
 }
 </style>

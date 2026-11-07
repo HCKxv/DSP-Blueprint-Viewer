@@ -104,10 +104,10 @@ function onCount(e: Event) {
   width: 32px;
   height: 32px;
   padding: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: #6f8ec0;
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   cursor: pointer;
 }
 
@@ -128,10 +128,10 @@ function onCount(e: Event) {
 .factory-belt-count {
   width: 92px;
   padding: 1px 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: var(--fg-value);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font-family: inherit;
   font-size: 14px;
   font-variant-numeric: tabular-nums;

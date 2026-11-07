@@ -42,7 +42,7 @@ const titleTool = computed(() => {
   grid-column: 1 / -1;
   background: var(--bg-panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   padding: 7px 14px;
   display: flex;
   align-items: center;

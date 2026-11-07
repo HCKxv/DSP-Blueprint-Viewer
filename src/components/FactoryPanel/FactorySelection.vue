@@ -456,7 +456,7 @@ watch(() => selectedBuilding.value?.index, () => {
         @click="resetStaged"
       >放弃修改</button>
       <button
-        class="btn-sm factory-selection-save"
+        class="btn-sm btn-primary"
         type="button"
         :disabled="!dirty"
         @click="onSave"
@@ -477,7 +477,7 @@ watch(() => selectedBuilding.value?.index, () => {
 .factory-selection-index {
   font-size: 14px;
   font-weight: bold;
-  color: #6ea8ff;
+  color: var(--fg-accent);
 }
 
 /* 分隔线 */
@@ -509,7 +509,7 @@ watch(() => selectedBuilding.value?.index, () => {
   margin-left: auto;
   flex-shrink: 0;
   font-size: 11px;
-  color: #8fa3c8;
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -553,7 +553,7 @@ watch(() => selectedBuilding.value?.index, () => {
 .factory-selection-group {
   flex-shrink: 0;
   font-size: 11px;
-  color: #6f8ec0;
+  color: var(--fg-secondary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -572,7 +572,7 @@ watch(() => selectedBuilding.value?.index, () => {
 
 .factory-inserter-index {
   flex-shrink: 0;
-  color: #8fa3c8;
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -593,11 +593,11 @@ watch(() => selectedBuilding.value?.index, () => {
 
 .factory-inserter-arrow {
   flex-shrink: 0;
-  color: #8fa3c8;
+  color: var(--fg-secondary);
 }
 
 .factory-inserter-none {
-  color: #8fa3c8;
+  color: var(--fg-muted);
 }
 
 /* 反转: 交换抓取端 / 放下端 */
@@ -624,34 +624,20 @@ watch(() => selectedBuilding.value?.index, () => {
 /* 删除建筑: 单独放操作行最左边，跟保存 / 放弃隔开 */
 .factory-selection-delete {
   margin-right: auto;
-  border: 1px solid rgba(255, 138, 138, 0.4);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
   background: transparent;
   color: var(--danger);
 }
 
 .factory-selection-delete:hover {
   border-color: var(--danger);
-  background: rgba(255, 120, 120, 0.14);
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
   color: var(--danger);
-}
-
-.factory-selection-save {
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  color: #fff;
-  cursor: pointer;
-}
-
-.factory-selection-save:disabled {
-  background: var(--bg-slot);
-  border-color: var(--line-strong);
-  color: #6b7a95;
-  cursor: default;
 }
 
 .factory-selection-empty {
   padding: 8px 2px;
   font-size: 14px;
-  color: #8fa3c4;
+  color: var(--fg-muted);
 }
 </style>

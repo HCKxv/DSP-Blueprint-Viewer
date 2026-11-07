@@ -270,10 +270,10 @@ const COLORS: Record<string, string> = {
   width: 32px;
   height: 32px;
   padding: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: #6f8ec0;
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   cursor: pointer;
 }
 
@@ -306,7 +306,7 @@ const COLORS: Record<string, string> = {
   height: 15px;
   padding: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   cursor: pointer;
   --dispenser-knob-w: 15px;
 }
@@ -410,10 +410,10 @@ const COLORS: Record<string, string> = {
   border-radius: 2px;
   background: linear-gradient(
     90deg,
-    #4364eb 0%,
-    #4364eb var(--factory-range-fill, 0%),
-    #22304a var(--factory-range-fill, 0%),
-    #22304a 100%
+    var(--accent) 0%,
+    var(--accent) var(--factory-range-fill, 0%),
+    var(--line) var(--factory-range-fill, 0%),
+    var(--line) 100%
   );
   outline: none;
   cursor: pointer;
@@ -425,7 +425,7 @@ const COLORS: Record<string, string> = {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--thumb);
   border: 2px solid var(--accent);
 }
 
@@ -433,13 +433,13 @@ const COLORS: Record<string, string> = {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--thumb);
   border: 2px solid var(--accent);
 }
 
 .factory-dispenser-power-value {
   justify-self: end;
-  color: var(--fg-value);
+  color: var(--fg-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

@@ -42,7 +42,7 @@ function onChange(event: Event) {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: var(--fg-value);
+  color: var(--fg-secondary);
   cursor: pointer;
 }
 

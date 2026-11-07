@@ -50,8 +50,8 @@ const thumbStyle = computed(() => ({ transform: `translateX(${Math.max(0, active
   align-items: center;
   padding: 2px;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg-app);
+  border-radius: var(--radius-sm);
+  background: var(--bg-stage);
   gap: 0;
   flex-shrink: 0;
   min-width: 0;
@@ -64,9 +64,9 @@ const thumbStyle = computed(() => ({ transform: `translateX(${Math.max(0, active
   /* 由本组件按档位数注入，缺省 2 档 */
   width: calc(100% / var(--tool-count, 2) - 4px / var(--tool-count, 2));
   height: calc(100% - 4px);
-  border-radius: 8px;
-  background: linear-gradient(180deg, #4364eb, #3451c9);
-  box-shadow: 0 2px 10px var(--accent-glow);
+  border-radius: var(--radius-xs);
+  background: linear-gradient(180deg, var(--accent), var(--accent-hover));
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 40%, transparent);
   transition: transform 0.28s cubic-bezier(0.4, 0.9, 0.3, 1);
   pointer-events: none;
 }
@@ -77,10 +77,10 @@ const thumbStyle = computed(() => ({ transform: `translateX(${Math.max(0, active
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 14px;
-  border-radius: 8px;
+  padding: 4px 10px;
+  border-radius: var(--radius-xs);
   background: transparent;
-  color: var(--fg-icon);
+  color: var(--fg-secondary);
   font-size: 13px;
   font-weight: 500;
   line-height: 1.5;
@@ -96,7 +96,7 @@ const thumbStyle = computed(() => ({ transform: `translateX(${Math.max(0, active
 .tool-slider-btn.active,
 .tool-slider-btn.active:hover {
   background: transparent;
-  color: #fff;
+  color: var(--fg);
   font-weight: bold;
 }
 </style>

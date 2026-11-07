@@ -44,9 +44,9 @@ const collapsed = ref(true)
 
 .stat-section-header {
   padding: 6px 12px;
-  background: var(--bg-inset);
-  border: 1px solid var(--line-inset);
-  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: bold;
   cursor: pointer;
@@ -57,7 +57,7 @@ const collapsed = ref(true)
 }
 
 .stat-section-header:hover {
-  background: #162032;
+  background: var(--state-hover);
 }
 
 .stat-section-title {

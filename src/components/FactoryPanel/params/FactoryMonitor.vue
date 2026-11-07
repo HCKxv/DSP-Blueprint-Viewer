@@ -177,7 +177,7 @@ const alarmText = computed(() => ALARM_MODE_NAMES[alarmMode.value] ?? String(ala
 .factory-monitor-head {
   font-size: 12px;
   font-weight: bold;
-  color: #8fa3c8;
+  color: var(--fg-secondary);
 }
 
 /* 文本框与颜色块共用的高度 */
@@ -200,10 +200,10 @@ const alarmText = computed(() => ALARM_MODE_NAMES[alarmMode.value] ?? String(ala
   min-width: 0;
   height: var(--factory-monitor-control-h);
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: var(--fg-value);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font-family: inherit;
   font-size: 14px;
   line-height: 18px;
@@ -225,7 +225,7 @@ const alarmText = computed(() => ALARM_MODE_NAMES[alarmMode.value] ?? String(ala
 .factory-monitor-unit {
   flex-shrink: 0;
   font-size: 13px;
-  color: #8fa3c8;
+  color: var(--fg-muted);
 }
 
 .factory-monitor-op {
@@ -236,7 +236,7 @@ const alarmText = computed(() => ALARM_MODE_NAMES[alarmMode.value] ?? String(ala
 
 .factory-monitor-id-label {
   flex-shrink: 0;
-  color: #8fa3c8;
+  color: var(--fg-secondary);
   white-space: nowrap;
 }
 
@@ -251,9 +251,9 @@ const alarmText = computed(() => ALARM_MODE_NAMES[alarmMode.value] ?? String(ala
   flex-shrink: 0;
   width: var(--factory-monitor-control-h);
   height: var(--factory-monitor-control-h);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
+  background: var(--bg-component);
 }
 
 .factory-monitor-text {
@@ -270,9 +270,9 @@ const alarmText = computed(() => ALARM_MODE_NAMES[alarmMode.value] ?? String(ala
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
+  background: var(--bg-component);
 }
 
 .factory-monitor-item .factory-icon {
@@ -288,9 +288,9 @@ const alarmText = computed(() => ALARM_MODE_NAMES[alarmMode.value] ?? String(ala
   flex: 0 0 auto;
   width: var(--factory-monitor-control-h);
   height: var(--factory-monitor-control-h);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
+  background: var(--bg-component);
 }
 
 .factory-monitor-alert-icon .factory-icon {

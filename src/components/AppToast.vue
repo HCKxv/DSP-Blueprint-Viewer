@@ -23,13 +23,12 @@ const { message, visible, transitionEnabled } = useToast()
   left: 50%;
   transform: translate(-50%, -20px);
   transition: transform 0.45s ease, opacity 0.45s ease;
-  background: rgba(30, 54, 87, 0.8);
+  background: color-mix(in srgb, var(--line) 80%, transparent);
   border-left: 3px solid var(--warn);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   padding: 8px 18px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   text-align: center;
-  color: #ccc;
+  color: var(--fg-secondary);
   font-size: 15px;
 }
 

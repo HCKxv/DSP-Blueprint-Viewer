@@ -65,7 +65,7 @@ import {
   align-items: flex-start;
   gap: 2px;
   padding: 7px 8px;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line);
   background: var(--bg-panel);
   color: var(--fg-secondary);
@@ -78,15 +78,15 @@ import {
 }
 
 .mode-card:hover {
-  background: #16203a;
-  border-color: #34506f;
+  background: var(--state-hover);
+  border-color: var(--line-hover);
 }
 
 .mode-card.active {
-  background: #16233c;
+  background: var(--bg-secondary);
   border-color: var(--accent);
-  color: var(--fg-strong);
-  box-shadow: inset 0 0 0 1px rgba(67, 100, 235, 0.35);
+  color: var(--fg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 /* 内联 SVG，用 currentColor 跟随卡片文字色 */

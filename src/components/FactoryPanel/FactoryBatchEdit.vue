@@ -254,7 +254,7 @@ function onConfirm() {
     <!-- 提交 -->
     <div class="factory-batch-actions">
       <button
-        class="btn-sm factory-batch-confirm"
+        class="btn-sm btn-primary"
         type="button"
         :disabled="!batchRules.length
           || batchRules.some((rule) => hasReplace(rule) && (!rule.values.from || !rule.values.to))"
@@ -299,23 +299,23 @@ function onConfirm() {
   gap: 6px;
   min-height: 38px;
   padding: 6px 8px;
-  border: 1px solid #1f2c44;
-  border-radius: 10px;
-  background: #111a2b;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
   min-width: 0;
 }
 
 .factory-batch-label {
   flex-shrink: 0;
   font-size: 13px;
-  color: #8fa3c8;
+  color: var(--fg-secondary);
 }
 
 /* 规则行里的补充说明 */
 .factory-batch-hint {
   flex-shrink: 0;
   font-size: 13px;
-  color: #7d90b0;
+  color: var(--fg-muted);
 }
 
 /* 方框里只有图标（没选就是空框 + 加号），点开配方浮窗 */
@@ -328,17 +328,17 @@ function onConfirm() {
   height: 24px;
   padding: 0;
   border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background: var(--bg-slot);
-  color: #6d7a92; /* 空框里那个加号 */
+  border-radius: var(--radius-xs);
+  background: var(--bg-component);
+  color: var(--fg-muted); /* 空框里那个加号 */
   cursor: pointer;
 }
 
 /* 全局 button:hover 是蓝的，会把这块涂蓝，所以背景要自己写 */
 .factory-batch-slot:hover:enabled {
-  background: #22314b;
+  background: var(--state-hover);
   border-color: var(--accent);
-  color: var(--fg-strong);
+  color: var(--fg);
 }
 
 .factory-batch-slot:disabled {
@@ -366,9 +366,9 @@ function onConfirm() {
   min-width: 0;
   padding: 0 4px;
   border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background: var(--bg-slot);
-  color: var(--fg-value);
+  border-radius: var(--radius-xs);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font-size: 13px;
   cursor: pointer;
 }
@@ -382,7 +382,7 @@ function onConfirm() {
   flex-shrink: 0;
   width: 14px;
   height: 14px;
-  color: #6f8ec0;
+  color: var(--fg-secondary);
 }
 
 /* 批量编辑里的线性图标 */
@@ -414,16 +414,16 @@ function onConfirm() {
   margin-left: auto;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: transparent;
-  color: #6f8ec0;
+  color: var(--fg-secondary);
   cursor: pointer;
 }
 
 .factory-batch-remove:hover {
-  background: #22314b;
+  background: var(--state-hover);
   border-color: var(--accent);
-  color: var(--fg-strong);
+  color: var(--fg);
 }
 
 .factory-batch-add {
@@ -433,14 +433,14 @@ function onConfirm() {
 .factory-batch-plus {
   width: 100%;
   justify-content: center;
-  color: var(--fg-icon);
+  color: var(--fg-secondary);
   cursor: pointer;
 }
 
 .factory-batch-plus:hover {
-  background: #16233a;
+  background: var(--state-hover);
   border-color: var(--accent);
-  color: var(--fg-strong);
+  color: var(--fg);
 }
 
 .factory-batch-plus svg {
@@ -459,8 +459,8 @@ function onConfirm() {
   width: 100%;
   padding: 4px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  background: var(--bg-pop);
+  border-radius: var(--radius-xs);
+  background: var(--bg-component);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
@@ -469,9 +469,9 @@ function onConfirm() {
   width: 100%;
   padding: 5px 8px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: transparent;
-  color: var(--fg-value);
+  color: var(--fg-secondary);
   font-size: 13px;
   text-align: left;
   white-space: nowrap;
@@ -479,32 +479,13 @@ function onConfirm() {
 }
 
 .factory-batch-menu-item:hover {
-  background: #22314b;
-  color: var(--fg-strong);
+  background: var(--state-hover);
+  color: var(--fg);
 }
 
 .factory-batch-actions {
   display: flex;
   justify-content: flex-end;
   margin-top: 4px;
-}
-
-/* 主按钮配色（跟「保存」一致） */
-.factory-batch-confirm {
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  color: #fff;
-  cursor: pointer;
-}
-
-.factory-batch-confirm:hover:enabled {
-  background: var(--accent-hover);
-}
-
-.factory-batch-confirm:disabled {
-  background: var(--bg-slot);
-  border-color: var(--line-strong);
-  color: #6b7a95;
-  cursor: default;
 }
 </style>

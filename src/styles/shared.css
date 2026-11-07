@@ -3,34 +3,53 @@
 
 /* ── 按钮 ── */
 .btn {
-  padding: 10px 16px;
-  border-radius: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
   font-size: 15px;
 }
 
 .btn-sm {
-  padding: 4px 10px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
   font-size: 12px;
 }
 
 /* 次要按钮：深底描边 */
 .btn-ghost {
-  background: var(--bg-slot);
+  background: var(--bg-component);
   color: var(--fg-secondary);
   border: 1px solid var(--line-strong);
 }
 
 .btn-ghost:hover {
-  background: #22314b;
-  color: var(--fg-strong);
+  background: var(--state-hover);
+  color: var(--fg);
 }
 
 .btn-ghost:disabled,
 .btn-ghost:disabled:hover {
-  background: #161e2e;
-  color: #6d7a92;
+  background: var(--state-disabled);
+  color: var(--fg-disabled);
   opacity: 0.6;
+}
+
+/* 主按钮：实心强调色；禁用态走深底描边 */
+.btn-primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.btn-primary:hover:enabled {
+  background: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+  background: var(--bg-component);
+  border-color: var(--line-strong);
+  color: var(--fg-disabled);
+  cursor: default;
 }
 
 .btn-group {
@@ -48,19 +67,19 @@
 /* ── 深色输入控件 ── */
 .input-dark {
   padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
-  background: var(--bg-input);
-  color: var(--fg-strong);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line);
+  background: var(--bg-secondary);
+  color: var(--fg);
   font-size: 13px;
   text-align: center;
 }
 
 .speed-select {
-  background: #1a2a44;
+  background: var(--bg-component);
   color: var(--fg-secondary);
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 0 4px;
   font-size: 13px;
 }
@@ -85,7 +104,7 @@
   flex-direction: column;
   gap: 8px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #1c2740;
+  border-bottom: 1px solid var(--line);
   min-width: 0;
 }
 
@@ -100,7 +119,7 @@
   gap: 6px;
   font-size: 12px;
   font-weight: bold;
-  color: #8fa3c8;
+  color: var(--fg-secondary);
 }
 
 /* 按钮与分组标题分属不同组件，写进任一边的 scoped 都会失效 */
@@ -137,7 +156,7 @@
 
 .paint-param-value.mono {
   font-size: 11px;
-  color: #8fa3c8;
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -162,7 +181,7 @@
 
 .menu-divider {
   border: none;
-  border-top: 1px solid var(--line-soft);
+  border-top: 1px solid var(--line);
   margin: 4px 0;
   width: 100%;
 }
@@ -195,12 +214,12 @@
   min-width: 56px;
   flex-shrink: 0;
   white-space: nowrap;
-  color: #8fa3c8;
+  color: var(--fg-secondary);
 }
 
 .factory-selection-value {
   min-width: 0;
-  color: var(--fg-value);
+  color: var(--fg-secondary);
   word-break: break-all;
 }
 
@@ -221,10 +240,10 @@
 .factory-selection-select {
   min-width: 0;
   padding: 1px 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: var(--fg-value);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font: inherit;
   cursor: pointer;
 }
@@ -241,16 +260,16 @@
   width: 18px;
   height: 18px;
   padding: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: var(--fg-icon);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   cursor: pointer;
 }
 
 .factory-selection-btn:hover {
   border-color: var(--accent);
-  color: var(--fg-strong);
+  color: var(--fg);
 }
 
 .factory-selection-btn svg {
@@ -267,7 +286,7 @@
 }
 
 .text-warning {
-  color: #e6b800;
+  color: var(--warn);
 }
 
 /* 收起态必须写在各自的收件容器上（如 .paint-section-body.collapsed）：
@@ -299,13 +318,13 @@
   color: var(--fg-secondary);
   font-size: 16px;
   cursor: pointer;
-  padding: 2px 8px;
-  border-radius: 6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
 }
 
 .modal-close:hover {
-  background: #1a2a44;
-  color: #fff;
+  background: var(--state-hover);
+  color: var(--fg);
 }
 
 /* ── 以下几条同样跨组件，别写进任一边的 scoped ── */
@@ -314,17 +333,17 @@
 .stat-card-btn {
   flex-shrink: 0;
   margin-left: auto;
-  padding: 2px 8px;
+  padding: 2px 6px;
   font-size: 11px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 
 /* 空态 / 报错态在 StatsPanel 里也用它 */
 .stat-box {
   padding: 8px 12px;
-  background: var(--bg-inset);
-  border: 1px solid var(--line-inset);
-  border-radius: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   font-size: 13px;
   line-height: 1.4;
 }

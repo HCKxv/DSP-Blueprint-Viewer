@@ -333,8 +333,8 @@ const shiftYPct = computed({
 .paint-swatch {
   width: 18px;
   height: 18px;
-  border-radius: 4px;
-  border: 1px solid #2d3c56;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line-strong);
 }
 
 .paint-palette-empty {
@@ -351,30 +351,30 @@ const shiftYPct = computed({
 }
 
 .paint-custom-group.boxed {
-  padding: 1px 3px 1px 1px;
+  padding: 1px;
   border: 1px solid var(--line-strong);
-  border-radius: 9px;
-  background: #131c2d;
+  border-radius: var(--radius-sm);
+  background: var(--bg-component);
   align-items: stretch;   /* 取色器拉伸到按钮高度 */
 }
 
 .paint-custom-group.boxed .btn-sm {
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
 }
 
 .paint-custom-group.boxed .paint-color {
   width: 58px;
   height: auto;
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
 }
 
 .paint-color {
   width: 36px;
   height: 20px;
   padding: 0;
-  border: 1px solid var(--line-soft);
-  border-radius: 5px;
-  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--bg-secondary);
   cursor: pointer;
 }
 
@@ -385,7 +385,7 @@ const shiftYPct = computed({
 
 .paint-color::-webkit-color-swatch {
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 /* 图外填充那一排: 按钮换行排列 */

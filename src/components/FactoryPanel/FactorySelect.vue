@@ -143,9 +143,9 @@ onBeforeUnmount(() => bind(false))
   box-sizing: border-box;
   height: var(--storage-line-h, 22px);
   padding: 0 6px;
-  border-radius: 4px;
-  border: 1px solid var(--role-color, #2d4a6e);
-  background-color: var(--bg-slot);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--role-color, var(--line-strong));
+  background-color: var(--bg-component);
   color: var(--role-color, #9fb0d0);
   font-family: inherit;
   font-size: 11px;
@@ -172,9 +172,9 @@ onBeforeUnmount(() => bind(false))
   display: flex;
   flex-direction: column;
   padding: 3px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: #141d2e;
+  background: var(--bg-component);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 }
 
@@ -184,7 +184,7 @@ onBeforeUnmount(() => bind(false))
   gap: 4px;
   padding: 2px 6px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: none;
   color: var(--role-color, #9fb0d0);
   font-family: inherit;
@@ -195,7 +195,7 @@ onBeforeUnmount(() => bind(false))
 }
 
 .factory-select-option:hover {
-  background: #1f2b42;
+  background: var(--state-hover);
 }
 
 /* 底色与文字色要分开管，否则字会被自己的底色盖掉 */

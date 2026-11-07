@@ -235,10 +235,10 @@ const briefWord = computed(() => {
   min-width: 0;
   height: var(--factory-marker-control-h);
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: var(--fg-value);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font-family: inherit;
   font-size: 14px;
   line-height: 18px;
@@ -283,15 +283,15 @@ const briefWord = computed(() => {
   flex-shrink: 0;
   width: var(--factory-marker-control-h);
   height: var(--factory-marker-control-h);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
+  background: var(--bg-component);
 }
 
 .factory-marker-unit {
   flex-shrink: 0;
   font-size: 13px;
-  color: #8fa3c8;
+  color: var(--fg-muted);
 }
 
 .factory-marker-brief {
@@ -303,9 +303,9 @@ const briefWord = computed(() => {
   min-height: 30px;
   padding: 3px 6px;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  background: var(--bg-slot);
-  color: var(--fg-value);
+  border-radius: var(--radius-xs);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font-size: 16px;
   line-height: 20px;
   overflow-wrap: anywhere;
@@ -317,7 +317,7 @@ const briefWord = computed(() => {
 }
 
 .factory-marker-empty {
-  color: #8fa3c8;
+  color: var(--fg-muted);
 }
 
 /* 标签块：按游戏里的小块显示，多个时换行 */
@@ -343,16 +343,16 @@ const briefWord = computed(() => {
   align-items: center;
   height: var(--factory-marker-control-h);
   padding: 0 7px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: var(--fg-value);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font-size: 14px;
   white-space: nowrap;
 }
 
 .factory-marker-tag-empty {
-  color: #8fa3c8;
+  color: var(--fg-muted);
 }
 
 /* 图标或 word 统一的大方框 */
@@ -364,9 +364,9 @@ const briefWord = computed(() => {
   width: 32px;
   height: 32px;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
+  background: var(--bg-component);
 }
 
 .factory-marker-brief-icon {
@@ -377,7 +377,7 @@ const briefWord = computed(() => {
 
 .factory-marker-brief-word {
   max-width: 100%;
-  color: var(--fg-value);
+  color: var(--fg-secondary);
   font-size: 14px;
   line-height: 1;
   text-align: center;
@@ -385,6 +385,6 @@ const briefWord = computed(() => {
 }
 
 .factory-marker-brief-word.is-empty {
-  color: #8fa3c8;
+  color: var(--fg-muted);
 }
 </style>

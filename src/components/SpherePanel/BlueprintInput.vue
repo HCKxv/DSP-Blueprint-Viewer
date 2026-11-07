@@ -156,7 +156,7 @@ function onDrop(e: DragEvent) {
   font-size: 13px;
   color: var(--fg-secondary);
   flex-shrink: 0;
-  padding: 8px 12px 0 12px;
+  padding: 8px 5px 0 5px;
 }
 
 .input-header span {
@@ -197,8 +197,8 @@ function onDrop(e: DragEvent) {
 }
 
 .input-header .btn-sm {
-  padding: 4px 10px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
   font-size: 12px;
   /* 按钮内部文字保持单行，避免按钮被压窄后文字竖排 */
   white-space: nowrap;
@@ -213,7 +213,7 @@ function onDrop(e: DragEvent) {
 
 .textarea-wrapper textarea.drag-over {
   border-color: var(--accent);
-  box-shadow: 0 0 12px var(--accent-ring);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .textarea-wrapper .drop-hint {
@@ -224,13 +224,13 @@ function onDrop(e: DragEvent) {
   pointer-events: none;
   font-size: 16px;
   font-weight: bold;
-  color: var(--fg-strong);
+  color: var(--fg);
   opacity: 0;
   transition: opacity 0.2s;
   text-align: center;
   background: rgba(16, 22, 36, 0.88);
   padding: 16px 28px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   border: 2px dashed var(--accent);
   white-space: nowrap;
 }

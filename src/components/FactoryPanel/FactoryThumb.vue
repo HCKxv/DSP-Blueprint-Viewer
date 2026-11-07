@@ -168,7 +168,7 @@ const slots = computed<(ThumbSlot | null)[]>(() => iconLayoutSlots(props.layout)
   aspect-ratio: 10 / 11;
   margin-block: auto;
   container-type: inline-size;   /* 文字用 cqw 跟着宽度缩放 */
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background-repeat: no-repeat;
   background-position: center;
   background-size: 100% 100%;
@@ -190,7 +190,7 @@ const slots = computed<(ThumbSlot | null)[]>(() => iconLayoutSlots(props.layout)
   justify-content: center;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: transparent;
   cursor: pointer;
   overflow: hidden;

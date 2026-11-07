@@ -159,9 +159,9 @@ function onResetView() {
   position: relative;
   flex: 1;
   min-height: 240px;
-  border-radius: 16px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  border: 1px solid #1b2740;
+  border: 1px solid var(--line);
   background: var(--bg-stage);
 }
 
@@ -218,7 +218,7 @@ function onResetView() {
   gap: 4px;
   margin-left: 4px;
   padding-left: 8px;
-  border-left: 1px solid var(--line-faint);
+  border-left: 1px solid var(--line);
   font-size: 12px;
   color: var(--fg-secondary);
   white-space: nowrap;
@@ -228,9 +228,9 @@ function onResetView() {
 /* 目标纬度下拉: 跟状态栏同一套深色描边 */
 .factory-preview-select {
   padding: 1px 4px;
-  border-radius: 4px;
-  background: var(--bg-inset);
-  border: 1px solid var(--line-inset);
+  border-radius: var(--radius-xs);
+  background: var(--bg-secondary);
+  border: 1px solid var(--line);
   color: var(--fg-secondary);
   font-size: 12px;
   font-family: inherit;
@@ -239,15 +239,15 @@ function onResetView() {
 
 .factory-preview-select:focus {
   outline: none;
-  border-color: #2f6bb5;
+  border-color: var(--accent);
 }
 
 .factory-preview-lat {
   width: 44px;
   padding: 1px 4px;
-  border-radius: 4px;
-  background: var(--bg-inset);
-  border: 1px solid var(--line-inset);
+  border-radius: var(--radius-xs);
+  background: var(--bg-secondary);
+  border: 1px solid var(--line);
   color: var(--fg-secondary);
   font-size: 12px;
   font-family: inherit;
@@ -256,7 +256,7 @@ function onResetView() {
 
 .factory-preview-lat:focus {
   outline: none;
-  border-color: #2f6bb5;
+  border-color: var(--accent);
 }
 
 /* 这么窄的框里放不下上下箭头 */
@@ -268,7 +268,7 @@ function onResetView() {
 
 .factory-preview-unit {
   margin-left: -2px;
-  color: #8a97ae;
+  color: var(--fg-muted);
 }
 
 /* 显示层开关: 推到状态行最右，与「目标纬度」同一行 */
@@ -286,8 +286,8 @@ function onResetView() {
 /* 亮着 = 该层显示；关掉时退回 btn-ghost 的暗底色 */
 .factory-layer-btn.active,
 .factory-layer-btn.active:hover {
-  background: #24405f;
-  border-color: #3d6f9e;
-  color: var(--fg-strong);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--fg);
 }
 </style>

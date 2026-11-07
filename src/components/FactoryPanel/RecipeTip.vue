@@ -114,8 +114,8 @@ watch(
   align-items: center;
   padding: 6px 8px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  background: var(--bg-pop);
+  border-radius: var(--radius-xs);
+  background: var(--bg-component);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
   pointer-events: none;
   /* 尺寸只跟内容走；有宽度约束的话贴边时会被挤得换行 */
@@ -130,7 +130,7 @@ watch(
   white-space: nowrap;
   font-size: 12px;
   font-weight: bold;
-  color: var(--fg-strong);
+  color: var(--fg);
 }
 
 /* 一排图标不换行 */
@@ -150,8 +150,8 @@ watch(
   height: 30px;
   padding: 2px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--bg-inset);
+  border-radius: var(--radius-xs);
+  background: var(--bg-secondary);
 }
 
 /* 箭头由原料指向产物，秒数标在它上方 */
@@ -174,7 +174,7 @@ watch(
 .recipe-tip-second {
   font-size: 9px;
   line-height: 1;
-  color: var(--fg-value);
+  color: var(--fg-secondary);
 }
 
 /* 数量角标: 个数大于 1 才画，压在图标右下角 */
@@ -186,7 +186,7 @@ watch(
   font-size: 10px;
   font-weight: bold;
   line-height: 1.2;
-  color: #6ea8ff;
+  color: var(--fg-accent);
   text-shadow: 0 0 3px #000, 0 1px 2px #000;
 }
 </style>

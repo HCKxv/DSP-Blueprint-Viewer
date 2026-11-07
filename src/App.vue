@@ -23,7 +23,7 @@ function loadUrlBlueprint() {
     return
   }
   loadBlueprintFromUrl({
-    onLoadStart: () => toast.show('正在加载蓝图'),
+    onLoadStart: () => toast.show('正在加载蓝图',10_000),
     // type 由蓝图开头标记判定：DYBP: → 球体预览；BLUEPRINT: → 工厂预览
     onLoaded: async (text, type) => {
       if (type === 'factory') {

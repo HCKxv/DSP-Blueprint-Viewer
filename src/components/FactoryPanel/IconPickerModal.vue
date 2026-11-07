@@ -276,7 +276,7 @@ function pick(item: IconRef) {
   max-height: min(70vh, 560px);
   background: var(--bg-panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
   overflow: hidden;
 }
@@ -307,7 +307,7 @@ function pick(item: IconRef) {
   width: 20px;
   height: 20px;
   padding: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   border: 1px solid transparent;
   background: transparent;
   color: var(--fg-muted);
@@ -323,14 +323,14 @@ function pick(item: IconRef) {
 
 .icon-pin:hover {
   border-color: var(--line-strong);
-  color: var(--fg-strong);
+  color: var(--fg);
 }
 
 /* 图钉斜过来 + 高亮，同游戏里 pinBtn.highlighted */
 .icon-pin.active {
   border-color: var(--accent);
-  background: #22345c;
-  color: var(--fg-value);
+  background: var(--accent);
+  color: var(--fg);
 }
 
 .icon-pin.active svg {
@@ -356,7 +356,7 @@ function pick(item: IconRef) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: var(--bg-slot);
+  background: var(--bg-component);
   color: var(--fg-secondary);
   border: 1px solid var(--line-strong);
 }
@@ -364,7 +364,7 @@ function pick(item: IconRef) {
 .icon-picker-cat.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--fg);
 }
 
 /* 格子里只有图标（名字在悬浮提示里），列可以窄一些 */
@@ -385,20 +385,20 @@ function pick(item: IconRef) {
   min-width: 0;
   padding: 3px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--bg-inset);
+  border-radius: var(--radius-xs);
+  background: var(--bg-secondary);
   color: var(--fg-secondary);
   cursor: pointer;
 }
 
 .icon-picker-item:hover {
-  border-color: #34506f;
-  background: #16203a;
+  border-color: var(--line-hover);
+  background: var(--state-hover);
 }
 
 .icon-picker-item.active {
   border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px rgba(67, 100, 235, 0.5);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .icon-picker-item .factory-icon {

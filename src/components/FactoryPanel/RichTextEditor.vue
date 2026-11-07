@@ -522,7 +522,7 @@ onBeforeUpdate(() => adoptExternal(props.modelValue))
   min-height: 17px;
   outline: none;
   cursor: text;
-  caret-color: var(--fg-strong);
+  caret-color: var(--fg);
 }
 
 /* 单行字段: 不换行、超出裁掉。用 pre 而非 nowrap —— nowrap 会吃掉行尾空格、
@@ -566,10 +566,10 @@ onBeforeUpdate(() => adoptExternal(props.modelValue))
   width: 15px;
   height: 15px;
   padding: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: var(--fg-icon);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   cursor: pointer;
 }
 
@@ -579,7 +579,7 @@ onBeforeUpdate(() => adoptExternal(props.modelValue))
 
 .factory-icon-btn:hover {
   border-color: var(--accent);
-  color: var(--fg-strong);
+  color: var(--fg);
 }
 
 .factory-icon-btn svg rect,

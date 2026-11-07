@@ -60,7 +60,7 @@ async function onExportImage() {
   position: relative;
   width: 100%;
   min-height: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--bg-stage);
 }

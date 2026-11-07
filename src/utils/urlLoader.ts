@@ -2,6 +2,8 @@
 const DEFAULT_WHITELIST = [
   'raw.githubusercontent.com/DSPBluePrints/',
   'cdn.jsdelivr.net/gh/DSPBluePrints/',
+  'gh-proxy.org/https://raw.githubusercontent.com/DSPBluePrints/',
+  'ghfast.top/https://raw.githubusercontent.com/DSPBluePrints/',
 ]
 
 /** 蓝图种类 */

@@ -88,10 +88,10 @@ function onClear() {
   width: 32px;
   height: 32px;
   padding: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: #6f8ec0;
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   cursor: pointer;
 }
 

@@ -2,35 +2,37 @@
 :root {
   /* ── 底色 ── */
   --bg-page: #090b14;
-  --bg-app: #0b1220;         /* 工具切换滑块的槽 */
   --bg-panel: #0f1628;
-  --bg-input: #101624;
-  --bg-inset: #111926;
-  --bg-stage: #05080e;
-  --bg-stage-alt: #0a0f1a;
-  --bg-slot: #1a2438;
-  --bg-pop: #131c2e;
+  --bg-stage: #0a0f1a;       /* 3D 预览 / 展开图舞台、工具切换滑块的槽 */
+  --bg-secondary: #151d31;   /* 输入框、内嵌块 */
+  --bg-component: #1a2438;   /* 控件槽、浮层 */
 
   /* ── 文字 ── */
-  --fg: #e7ebff;
-  --fg-strong: #eef2ff;
-  --fg-secondary: #bcc8e0;
-  --fg-muted: #7b8aa6;
-  --fg-icon: #9fb0d0;
-  --fg-value: #cfe0ff;
+  --fg: #e7ebff;          /* 主文字/标题/输入 */
+  --fg-secondary: #bcc8e0;/* 次级标签、菜单、图标、数值 */
+  --fg-muted: #7b8aa6;    /* 提示、空态、单位 */
+  --fg-accent: #6ea8ff;   /* 排序箭头、计数等强调文字 */
+  --fg-disabled: #6d7a92; /* 禁用态文字 */
+
+  /* ── 控件 ── */
+  --thumb: #e7ebff;       /* 滑轨圆钮填充 */
 
   /* ── 描边 ── */
-  --line: #243556;
-  --line-strong: #2d4a6e;
-  --line-soft: #23334f;
-  --line-inset: #1e3657;
-  --line-faint: #22304a;
+  --line: #243556;        /* 默认外框、分隔线、弱边 */
+  --line-strong: #2d4a6e; /* 控件、输入、浮层 */
+  --line-hover: #34506f;  /* hover 描边 */
 
   /* ── 强调 ── */
   --accent: #4364eb;
   --accent-hover: #3451c9;
-  --accent-ring: rgba(67, 100, 235, 0.4);    /* 拖放光圈 */
-  --accent-glow: rgba(67, 100, 235, 0.45);   /* 滑动指示块的投影 */
   --danger: #ff8a8a;
   --warn: #ffd866;
+
+  /* ── 状态 ── */
+  --state-hover: #22314b;   /* hover / active 背景 */
+  --state-disabled: #161e2e;/* 禁用表面 */
+
+  /* ── 圆角 ── */
+  --radius-sm: 5px;   /* 卡片、面板、大按钮、普通输入框 */
+  --radius-xs: 3px;   /* 小按钮、图标、紧凑控件 */
 }

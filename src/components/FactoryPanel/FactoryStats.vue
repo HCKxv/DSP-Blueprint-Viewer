@@ -319,7 +319,7 @@ function fmt(value: number): string {
   align-items: center;
   gap: 3px;
   font-size: 12px;
-  color: var(--fg-value);
+  color: var(--fg-secondary);
 }
 
 .generator-icon {
@@ -355,7 +355,7 @@ function fmt(value: number): string {
 }
 
 .power-value {
-  color: var(--fg-value);
+  color: var(--fg-secondary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -383,14 +383,14 @@ function fmt(value: number): string {
   display: flex;
   align-items: center;
   padding: 5px 4px;
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line);
   font-size: 12px;
-  color: var(--fg-value);
+  color: var(--fg-secondary);
   min-width: 0;
 }
 
 .stats-row:not(.stats-header):hover > * {
-  background: #16233c;
+  background: var(--state-hover);
 }
 
 /* 列头就是排序按钮: 铺满整格 */
@@ -429,7 +429,7 @@ function fmt(value: number): string {
 
 .stats-arrow {
   font-size: 10px;
-  color: #6ea8ff;
+  color: var(--fg-accent);
 }
 
 .stats-num {

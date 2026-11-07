@@ -445,10 +445,10 @@ function onClearItem(index: number) {
   border-radius: 2px;
   background: linear-gradient(
     90deg,
-    #4364eb 0%,
-    #4364eb var(--factory-range-fill, 0%),
-    #22304a var(--factory-range-fill, 0%),
-    #22304a 100%
+    var(--accent) 0%,
+    var(--accent) var(--factory-range-fill, 0%),
+    var(--line) var(--factory-range-fill, 0%),
+    var(--line) 100%
   );
   outline: none;
   cursor: pointer;
@@ -460,7 +460,7 @@ function onClearItem(index: number) {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--thumb);
   border: 2px solid var(--accent);
 }
 
@@ -468,7 +468,7 @@ function onClearItem(index: number) {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--thumb);
   border: 2px solid var(--accent);
 }
 
@@ -511,7 +511,7 @@ function onClearItem(index: number) {
   justify-self: end;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--fg-value);
+  color: var(--fg-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -556,8 +556,8 @@ function onClearItem(index: number) {
   align-items: center;
   gap: 6px;
   padding: 4px 6px;
-  border-radius: 5px;
-  background: #141d2e;
+  border-radius: var(--radius-xs);
+  background: var(--bg-secondary);
 }
 
 .factory-storage-icon {
@@ -569,10 +569,10 @@ function onClearItem(index: number) {
   width: 47px;
   height: 47px;
   padding: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: #6f8ec0;
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   cursor: pointer;
 }
 
@@ -612,10 +612,10 @@ function onClearItem(index: number) {
   height: var(--storage-line-h, 22px);
   box-sizing: border-box;
   padding: 0 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: var(--fg-value);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font-family: inherit;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -630,10 +630,10 @@ function onClearItem(index: number) {
 .factory-storage-lock {
   flex: 0 0 auto;
   padding: 1px 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
-  color: var(--fg-icon);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font-size: 11px;
   white-space: nowrap;
   cursor: pointer;
@@ -641,7 +641,7 @@ function onClearItem(index: number) {
 
 .factory-storage-lock:hover {
   border-color: var(--accent);
-  color: var(--fg-strong);
+  color: var(--fg);
 }
 
 /* 高度与输入框一样，细轨画在中间（多出来的高度只是可点区域） */
@@ -664,17 +664,17 @@ function onClearItem(index: number) {
   border-radius: 2px;
   background: linear-gradient(
     90deg,
-    #4364eb 0%,
-    #4364eb var(--factory-range-fill, 0%),
-    #22304a var(--factory-range-fill, 0%),
-    #22304a 100%
+    var(--accent) 0%,
+    var(--accent) var(--factory-range-fill, 0%),
+    var(--line) var(--factory-range-fill, 0%),
+    var(--line) 100%
   );
 }
 
 .factory-storage-range::-moz-range-track {
   height: 4px;
   border-radius: 2px;
-  background: var(--line-faint);
+  background: var(--line);
 }
 
 .factory-storage-range::-moz-range-progress {
@@ -691,7 +691,7 @@ function onClearItem(index: number) {
   height: 11px;
   margin-top: -3.5px;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--thumb);
   border: 2px solid var(--accent);
 }
 
@@ -699,7 +699,7 @@ function onClearItem(index: number) {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--thumb);
   border: 2px solid var(--accent);
 }
 

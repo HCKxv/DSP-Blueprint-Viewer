@@ -31,7 +31,7 @@ const collapsed = ref(false)
   display: flex;
   flex-direction: column;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--bg-panel);
   overflow: hidden;
   flex-shrink: 0;
@@ -50,8 +50,8 @@ const collapsed = ref(false)
 }
 
 .paint-section-header:hover {
-  background: #16203a;
-  color: var(--fg-strong);
+  background: var(--state-hover);
+  color: var(--fg);
 }
 
 .paint-section-title {

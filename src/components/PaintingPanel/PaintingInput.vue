@@ -127,8 +127,8 @@ function onClear() {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
-  border-radius: 10px;
-  border: 1px dashed #34506f;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--line-hover);
   background: var(--bg-panel);
   display: flex;
   flex-direction: column;
@@ -152,7 +152,7 @@ function onClear() {
 
 .image-drop.drag-over {
   border-color: var(--accent);
-  box-shadow: 0 0 12px var(--accent-ring);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .image-drop-hint {
@@ -184,7 +184,7 @@ function onClear() {
   gap: 6px;
   padding: 3px 6px;
   font-size: 11px;
-  color: #dce4f5;
+  color: var(--fg);
   background: linear-gradient(180deg, rgba(5, 8, 14, 0), rgba(5, 8, 14, 0.88));
 }
 
@@ -208,7 +208,7 @@ function onClear() {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: var(--fg-strong);
+  color: var(--fg);
   background: rgba(9, 11, 20, 0.62);
   opacity: 0;
   transition: opacity 0.2s;
@@ -226,13 +226,13 @@ function onClear() {
   pointer-events: none;
   font-size: 13px;
   font-weight: bold;
-  color: var(--fg-strong);
+  color: var(--fg);
   opacity: 0;
   transition: opacity 0.2s;
   text-align: center;
   background: rgba(16, 22, 36, 0.9);
   padding: 10px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 2px dashed var(--accent);
   white-space: nowrap;
 }

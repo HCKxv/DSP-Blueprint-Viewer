@@ -481,7 +481,7 @@ class DysonSpherePreview {
     if (!this._loadingEl) {
       const el = document.createElement('div');
       el.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;'
-        + 'justify-content:center;background:rgba(8,12,18,.55);color:#dfe7ef;'
+        + 'justify-content:center;background:rgba(8,12,18,.55);color:var(--fg);'
         + 'font:14px/1.6 system-ui,sans-serif;pointer-events:none;z-index:5';
       const host = this._canvas?.parentElement;
       if (host) {
@@ -491,7 +491,7 @@ class DysonSpherePreview {
       this._loadingEl = el;
     }
     if (text !== undefined) this._loadingEl.textContent = text;
-    this._loadingEl.style.color = isError ? '#ff9a9a' : '#dfe7ef';
+    this._loadingEl.style.color = isError ? 'var(--danger)' : 'var(--fg)';
   }
 
   // ─── 生命周期 ──────────────────────────────────────────────

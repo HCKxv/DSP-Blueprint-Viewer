@@ -144,10 +144,10 @@ onBeforeUnmount(() => {
 <style scoped>
 .footer-bar {
   padding: 14px 20px;
-  /* 比面板底色再深一档，与滑块槽那个 #0b1220 不是同一个色，别并成一个变量 */
+  /* 页脚用比面板更深一档的底色，单独保留 */
   background: #0b1020;
   border-top: 2px solid transparent;
-  border-image: linear-gradient(90deg, #243556 0%, #4364eb 25%, #ffd866 50%, #4364eb 75%, #243556 100%) 1;
+  border-image: linear-gradient(90deg, var(--line) 0%, var(--accent) 25%, var(--warn) 50%, var(--accent) 75%, var(--line) 100%) 1;
   color: var(--fg-secondary);
   font-size: 13px;
   display: flex;
@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
 }
 
 .footer-bar a:hover .footer-item {
-  background: #1a2a44;
+  background: var(--state-hover);
   color: var(--fg);
 }
 
@@ -174,14 +174,14 @@ onBeforeUnmount(() => {
 }
 
 .footer-bar button.footer-item:hover {
-  background: #1a2a44;
+  background: var(--state-hover);
   color: var(--fg);
 }
 
 .footer-item {
   padding: 1px 4px;
-  border-radius: 6px;
-  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line);
 }
 
 .footer-center {

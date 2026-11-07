@@ -96,7 +96,7 @@ const priorityStates = computed(() => {
 
 .factory-turret-priority-label {
   font-size: 12px;
-  color: #8fa3c8;
+  color: var(--fg-secondary);
   white-space: nowrap;
 }
 

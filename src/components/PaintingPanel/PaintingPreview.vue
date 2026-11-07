@@ -251,9 +251,9 @@ const emptyHint = computed(() => (painting.imageUrl ? '正在生成…' : '输�
   position: relative;
   flex: 1;
   min-height: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  background: var(--bg-stage-alt);
+  background: var(--bg-stage);
 }
 
 .paint-preview-stage canvas {
@@ -303,10 +303,10 @@ const emptyHint = computed(() => (painting.imageUrl ? '正在生成…' : '输�
 }
 
 .paint-chip {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--bg-inset);
-  border: 1px solid var(--line-inset);
+  padding: 2px 4px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-secondary);
+  border: 1px solid var(--line);
   color: var(--fg-secondary);
   white-space: nowrap;
 }
@@ -328,7 +328,7 @@ const emptyHint = computed(() => (painting.imageUrl ? '正在生成…' : '输�
   gap: 4px;
   margin-left: 4px;
   padding-left: 8px;
-  border-left: 1px solid var(--line-faint);
+  border-left: 1px solid var(--line);
   font-size: 11px;
   color: var(--fg-secondary);
   cursor: pointer;
@@ -343,7 +343,7 @@ const emptyHint = computed(() => (painting.imageUrl ? '正在生成…' : '输�
   gap: 8px;
   padding: 12px;
   /* 与 3D 预览同一底色 */
-  background: var(--bg-stage-alt);
+  background: var(--bg-stage);
 }
 
 /* 仅一个「导出展开图」按钮，靠右 */
@@ -389,8 +389,8 @@ const emptyHint = computed(() => (painting.imageUrl ? '正在生成…' : '输�
   max-width: 100%;
   max-height: 100%;
   display: block;
-  border-radius: 6px;
-  border: 1px solid var(--line-faint);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
   image-rendering: pixelated;
 }
 

@@ -73,9 +73,9 @@ const slots = computed(() => {
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: var(--bg-slot);
+  background: var(--bg-component);
 }
 
 /* 被 bans 限制的格子: 框色由 --factory-storage-banned 给（储物仓红 / 基站蓝） */

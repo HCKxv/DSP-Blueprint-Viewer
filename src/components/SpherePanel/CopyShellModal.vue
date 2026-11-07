@@ -201,7 +201,7 @@ onBeforeUnmount(() => {
         </label>
       </div>
 
-      <div v-if="invalidText" class="menu" style="color: #ff6b6b;">
+      <div v-if="invalidText" class="menu" style="color: var(--danger);">
         ⚠ {{ invalidText }}
       </div>
 

@@ -188,9 +188,9 @@ function onClose() {
   justify-content: center;
   gap: 4px;
   padding: 32px 12px;
-  border-radius: 10px;
-  border: 1px dashed #34506f;
-  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--line-hover);
+  background: var(--bg-secondary);
   text-align: center;
   cursor: pointer;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -202,12 +202,12 @@ function onClose() {
 
 .factory-import-drop.drag-over {
   border-color: var(--accent);
-  box-shadow: 0 0 12px var(--accent-ring);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .factory-import-drop-title {
   font-size: 13px;
-  color: var(--fg-strong);
+  color: var(--fg);
 }
 
 .factory-import-drop-sub {
@@ -223,13 +223,13 @@ function onClose() {
   pointer-events: none;
   font-size: 13px;
   font-weight: bold;
-  color: var(--fg-strong);
+  color: var(--fg);
   opacity: 0;
   transition: opacity 0.2s;
   text-align: center;
   background: rgba(16, 22, 36, 0.9);
   padding: 10px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 2px dashed var(--accent);
   white-space: nowrap;
 }
@@ -262,10 +262,10 @@ function onClose() {
   max-height: 180px;
   box-sizing: border-box;
   padding: 10px;
-  border-radius: 10px;
-  border: 1px solid var(--line-soft);
-  background: var(--bg-input);
-  color: var(--fg-strong);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-secondary);
+  color: var(--fg);
   font-size: 12px;
   line-height: 1.5;
   resize: vertical;

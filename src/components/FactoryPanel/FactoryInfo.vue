@@ -381,10 +381,10 @@ function onDiscardFoundation(kind: 'decal' | 'undecal') {
   width: 100%;
   box-sizing: border-box;
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line-strong);
-  background: #16233c;
-  color: var(--fg-strong);
+  background: var(--bg-secondary);
+  color: var(--fg);
   font-size: 13px;
   font-family: inherit;
 }
@@ -395,7 +395,7 @@ function onDiscardFoundation(kind: 'decal' | 'undecal') {
 .factory-desc:focus-within {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(67, 100, 235, 0.35);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .factory-input {
@@ -424,16 +424,16 @@ function onDiscardFoundation(kind: 'decal' | 'undecal') {
   padding-right: 18px;
   cursor: pointer;
   background-image:
-    linear-gradient(45deg, transparent 50%, #bcc8e0 50%),
-    linear-gradient(135deg, #bcc8e0 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, var(--fg-secondary) 50%),
+    linear-gradient(135deg, var(--fg-secondary) 50%, transparent 50%);
   background-position: calc(100% - 11px) 12px, calc(100% - 7px) 12px;
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
 }
 
 .factory-layout-select option {
-  background: #16233c;
-  color: var(--fg-strong);
+  background: var(--bg-secondary);
+  color: var(--fg);
 }
 
 /* 宽度在 96 ~ 132px 之间伸缩 */
@@ -474,7 +474,7 @@ function onDiscardFoundation(kind: 'decal' | 'undecal') {
   height: 16px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--fg-muted);
   font-size: 14px;
@@ -483,7 +483,7 @@ function onDiscardFoundation(kind: 'decal' | 'undecal') {
 }
 
 .factory-prop-remove:hover {
-  background: rgba(255, 120, 120, 0.15);
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
   color: var(--danger);
 }
 
@@ -530,10 +530,10 @@ function onDiscardFoundation(kind: 'decal' | 'undecal') {
   align-items: center;
   justify-content: center;
   padding: 3px;
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--line-strong);
-  background: #16233c;
-  color: var(--fg-value);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
   font-size: 9px;
   line-height: 1.15;
   text-align: center;
@@ -556,7 +556,7 @@ function onDiscardFoundation(kind: 'decal' | 'undecal') {
   bottom: 1px;
   font-size: 10px;
   font-weight: bold;
-  color: #6ea8ff;
+  color: var(--fg-accent);
   text-shadow: 0 0 3px #000, 0 1px 2px #000;
 }
 

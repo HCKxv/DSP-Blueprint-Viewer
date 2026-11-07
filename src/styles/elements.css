@@ -23,10 +23,10 @@ textarea {
   flex: 1;
   min-height: 0;
   padding: 14px;
-  border-radius: 14px;
-  border: 1px solid var(--line-soft);
-  background: var(--bg-input);
-  color: var(--fg-strong);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-secondary);
+  color: var(--fg);
   font-size: 14px;
   resize: none;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -44,7 +44,7 @@ textarea::-webkit-scrollbar,
 .scroll-y::-webkit-scrollbar,
 .icon-picker::-webkit-scrollbar,
 .icon-picker-grid::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 textarea::-webkit-scrollbar-thumb,
@@ -53,7 +53,7 @@ textarea::-webkit-scrollbar-thumb,
 .icon-picker::-webkit-scrollbar-thumb,
 .icon-picker-grid::-webkit-scrollbar-thumb {
   background: #334;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 
 textarea::-webkit-scrollbar-thumb:hover,

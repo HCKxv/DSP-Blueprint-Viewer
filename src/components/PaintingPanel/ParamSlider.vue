@@ -163,10 +163,10 @@ function onRange(v: number) {
   border-radius: 2px;
   background: linear-gradient(
     90deg,
-    #4364eb 0%,
-    #4364eb var(--paint-range-fill, 50%),
-    #22304a var(--paint-range-fill, 50%),
-    #22304a 100%
+    var(--accent) 0%,
+    var(--accent) var(--paint-range-fill, 50%),
+    var(--line) var(--paint-range-fill, 50%),
+    var(--line) 100%
   );
   outline: none;
   cursor: pointer;
@@ -179,16 +179,16 @@ function onRange(v: number) {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--thumb);
   border: 2px solid var(--accent);
-  box-shadow: 0 0 6px rgba(67, 100, 235, 0.6);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .paint-range::-moz-range-thumb {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--fg);
+  background: var(--thumb);
   border: 2px solid var(--accent);
 }
 

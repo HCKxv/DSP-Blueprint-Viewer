@@ -144,7 +144,7 @@ function onQualityChange(e: Event) {
 }
 
 .menu-header:hover {
-  color: var(--fg-strong);
+  color: var(--fg);
 }
 
 .menu-div {

@@ -233,8 +233,9 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(360px, 1fr) minmax(0, 2fr);
   grid-template-rows: minmax(0, 1fr);
   grid-template-areas: "left center";
-  /* 比通用的 12px 少 4px: 左栏内容右侧还给滚动条留了 4px */
-  column-gap: 8px;
+  /* 左栏 .paint-scroll 右侧给滚动条留了 2px: 网格 gap 用 6px，
+     内容到右侧面板的视觉间距才是全局的 8px */
+  column-gap: 6px;
 }
 
 .panels--paint > .paint-col {
@@ -257,7 +258,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-right: 4px;
+  padding-right: 2px;
 }
 
 .scroll-edge-blur {
@@ -307,7 +308,7 @@ onBeforeUnmount(() => {
 
 .paint-view-switch :deep(.tool-slider-btn) {
   justify-content: center;
-  padding: 3px 12px;
+  padding: 3px 10px;
   font-size: 12px;
   gap: 0;
 }

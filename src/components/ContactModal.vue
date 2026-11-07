@@ -55,7 +55,7 @@ defineExpose({ open: openModal })
 
 /* 相邻两行之间来一条淡分割线 */
 .contact-row + .contact-row {
-  border-top: 1px solid var(--line-soft);
+  border-top: 1px solid var(--line);
 }
 
 .contact-text {
@@ -63,7 +63,7 @@ defineExpose({ open: openModal })
 }
 
 .contact-link {
-  color: var(--warn);
+  color: var(--accent);
   text-decoration: none;
   overflow-wrap: anywhere;
 }

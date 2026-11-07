@@ -48,9 +48,9 @@ const emit = defineEmits<{
   position: relative;
   width: min(480px, 92vw);
   max-height: 80vh;
-  background: #0f1628;
-  border: 1px solid #243556;
-  border-radius: 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -62,7 +62,7 @@ const emit = defineEmits<{
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #243556;
+  border-bottom: 1px solid var(--line);
   font-weight: bold;
 }
 
