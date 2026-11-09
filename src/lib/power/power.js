@@ -32,37 +32,39 @@ function _elerp(a, b, t) {
   return _v(r * Math.cos(lon) * cosLat, r * Math.sin(lat), r * Math.sin(lon) * cosLat);
 }
 
-// 框架细分
+// 曲线框架的分段
 function _getFrameSegments(nodeA, nodeB, euler) {
   if (!euler) {
     return [nodeA.pos, nodeB.pos];
   }
   const num = 40;
   const threshold = 15;
-  const raw = [];
-  for (let i = 0; i < num; i++) {
-    raw.push(_elerp(nodeA.pos, nodeB.pos, i / (num - 1)));
-  }
-  const simplified = [raw[0]];
-  let lastKept = 0;
+  const a = nodeA.pos;
+  const b = nodeB.pos;
+  const kept = [a];
+  let last = a;
+  let lastIdx = 0;
   for (let i = 1; i < num; i++) {
-    let allClose = true;
-    for (let j = lastKept + 1; j < i; j++) {
-      const p0 = raw[lastKept], p1 = raw[i], pt = raw[j];
-      const planeN = _norm(_cross(p0, p1));
-      const dist = Math.abs(_dot(planeN, pt));
-      if (dist > threshold) { allClose = false; break; }
+    const p = _elerp(a, b, i / num);
+    const planeN = _norm(_cross(last, p));
+    let deviate = false;
+    for (let j = lastIdx + 1; j < i; j++) {
+      const q = _elerp(a, b, j / num);
+      if (Math.abs(_dot(planeN, q)) > threshold) {
+        deviate = true;
+        break;
+      }
     }
-    if (!allClose) {
-      simplified.push(raw[Math.max(i - 1, lastKept + 1)]);
-      lastKept = i - 1;
+    if (deviate) {
+      kept.push(p);
+      last = p;
+      lastIdx = i;
     }
   }
-  simplified.push(raw[num - 1]);
-  const count = simplified.length;
-  const result = [];
+  const count = kept.length;
+  const result = new Array(count + 1);
   for (let k = 0; k <= count; k++) {
-    result.push(_elerp(nodeA.pos, nodeB.pos, k / count));
+    result[k] = _elerp(a, b, k / count);
   }
   return result;
 }
@@ -191,8 +193,8 @@ function _countFaceCells(faceNodes, faceFrames, radius, gridScale) {
       gU[i] = radius * (ux * xx + uy * xy + uz * xz) / den;
       gV[i] = radius * (ux * yx + uy * yy + uz * yz) / den;
     }
-    const sinHalf = maxDist / (2 * radius);
-    const band = halfGrid / (1 - sinHalf * sinHalf);
+    const sinMax = Math.min(0.95, (maxDist + halfGrid) / radius);
+    const band = halfGrid / (1 - sinMax * sinMax);
     aMinU = gU[0] - band; aMaxU = gU[0] + band;
     aMinV = gV[0] - band; aMaxV = gV[0] + band;
     for (let i = 1; i < pCount; i++) {
@@ -294,7 +296,7 @@ function _countFaceCells(faceNodes, faceFrames, radius, gridScale) {
         else if (projT > eLen2[q]) {
           const ux = tx - eX[q], uy = ty - eY[q], uz = tz - eZ[q];
           d2 = ux * ux + uy * uy + uz * uz;
-        } else d2 = t2 - (projT * projT) / eLen2[q];
+        } else d2 = plane * plane;
         if (d2 <= half2u) { count++; break; }
       }
     }
