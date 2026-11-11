@@ -30,6 +30,7 @@ function loadUrlBlueprint() {
         activeTool.value = 'factory'
         const res = await loadBlueprintText(text)
         if (!res.ok) toast.show(`加载蓝图失败：\n${res.message}`)
+        else toast.show(res.message)
         return
       }
       activeTool.value = 'preview'

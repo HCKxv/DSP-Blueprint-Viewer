@@ -1,6 +1,5 @@
 /**
- * 星空背景（球体预览与工厂预览共用同一份代码）:
- * 半径 60 的球面上铺三层星点 + 少量光晕亮星；星点 sizeAttenuation: false，屏幕像素大小固定，当天空盒看。
+ * 星空背景: 半径 60 的球面上铺三层星点 + 少量光晕亮星；星点 sizeAttenuation: false，屏幕像素大小固定，当天空盒看。
  *
  * 用法: scene.add(createStarfield(pixelRatio, seed))；销毁时 disposeStarfield(group)。
  */
@@ -14,9 +13,9 @@ const STARFIELD_RADIUS = 60;
 
 /** 三层星点: 不同大小 / 数量 / 亮度，模拟远近层次 */
 const STAR_LAYERS = [
-  { count: 130, size: 1.8, minBright: 0.5 },
-  { count: 380, size: 1.3, minBright: 0.32 },
-  { count: 850, size: 0.9, minBright: 0.18 },
+  { count: 70, size: 1.3, minBright: 0.5 },
+  { count: 200, size: 0.95, minBright: 0.32 },
+  { count: 440, size: 0.65, minBright: 0.18 },
 ];
 
 /** 星色: 白 / 冷蓝 / 暖黄 / 淡蓝 / 淡橙（按权重抽取） */
@@ -104,7 +103,7 @@ export function createStarfield(pixelRatio = 1, seed = 0) {
       depthWrite: false,
     }));
     sprite.position.set(x * brightRadius, y * brightRadius, z * brightRadius);
-    const size = 0.6 + rand() * 0.8;
+    const size = 0.45 + rand() * 0.6;
     sprite.scale.set(size, size, 1);
     group.add(sprite);
   }

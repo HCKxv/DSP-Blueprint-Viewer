@@ -52,7 +52,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-import { buildCloudOrbit } from './buildCloud.js';
+import { buildCloudOrbit, INDICES_PER_SAIL } from './buildCloud.js';
 import { buildShellLayer, buildShellSimpleLayer, buildNodeGeometries, cancelLayerWorker } from './buildShell.js';
 import { ensureShellPatternTextures, onShellPatternReady, applyLayerPainting } from './shellPattern.js';
 import { getStarColors } from './starColors.js';
@@ -91,6 +91,7 @@ class DysonSpherePreview {
     this._starBgColor = new THREE.Color(STARFIELD_BG_COLOR);
 
     this._shellGroups = [];
+    this._cloudGroups = [];
     this._shellRotationEnabled = true;
     this._shellSpeed = 0.05;
     this._currentScale = 1;
@@ -109,6 +110,7 @@ class DysonSpherePreview {
     this._sharedBackMaterial = null;
     this._starEmissionColor = null;
     this._model = 'detailed';
+    this._sailDensity = 8;
 
     // 绑定的事件回调引用，用于 dispose
     this._onBlur = null;
@@ -228,7 +230,11 @@ class DysonSpherePreview {
     // 先清空旧场景，再建到暂存 group，成功后一次性换上
     this.clearScene();
     const staging = new THREE.Group();
+    const cloudBucket = new THREE.Group();
+    cloudBucket.name = 'cloudBucket';
+    staging.add(cloudBucket);
     const stagedShells = [];
+    const stagedCloudGroups = [];
     const stagedVis = new Map();
     let failed = false;
     try {
@@ -263,10 +269,20 @@ class DysonSpherePreview {
           if (!orb) return;
           const gv = cloud.visibility ? cloud.visibility.inGame[orb.id] : true;
           const color = cloud.colors?.[orb.id] ?? cloud.colors?.[orb.id - 1] ?? cloud.colors?.[idx];
-          const obj = buildCloudOrbit(orb, color, this._currentScale);
+          const cloudObj = buildCloudOrbit(
+            orb, color, this._currentScale, this._model === 'detailed', this._sailDensity / 16,
+          );
+          const obj = cloudObj.group;
           obj.visible = gv;
+          obj.userData.cloudOrbitId = orb.id;
           stagedVis.set('cloud_' + orb.id, obj);
-          staging.add(obj);
+          stagedCloudGroups.push({
+            group: obj,
+            pole: cloudObj.pole,
+            radius: orb.radius,
+            rotates: this._model === 'detailed',
+          });
+          cloudBucket.add(obj);
         });
         if (token !== this._renderToken) {
           for (const sg of stagedShells) sg.paintCube?.dispose();
@@ -312,6 +328,7 @@ class DysonSpherePreview {
         return;
       }
       this._shellGroups = stagedShells;
+      this._cloudGroups = stagedCloudGroups;
       this._visObjects = stagedVis;
       this._rootGroup.add(staging);
 
@@ -355,6 +372,22 @@ class DysonSpherePreview {
     if (next === this._model) return;
     this._model = next;
     this._applyPipeline();
+  }
+
+  /** @param {number} level 太阳帆密度档位 1..16 */
+  setSailDensity(level) {
+    const next = Math.max(1, Math.min(16, Math.round(level)));
+    if (next === this._sailDensity) return;
+    this._sailDensity = next;
+    const ratio = next / 16;
+    for (const sg of this._cloudGroups) {
+      const mesh = sg.group.getObjectByName('cloudSails');
+      if (!mesh) continue;
+      const max = mesh.userData.sailMaxCount;
+      const count = Math.max(1, Math.round(max * ratio));
+      mesh.geometry.setDrawRange(0, count * INDICES_PER_SAIL);
+    }
+    this._needsRender = true;
   }
 
   // ─── 4. 刻度显示开关 ───────────────────────────────────────
@@ -449,6 +482,7 @@ class DysonSpherePreview {
       if (sg.paintCube) sg.paintCube.dispose();
     }
     this._shellGroups.length = 0;
+    this._cloudGroups.length = 0;
     this._visObjects.clear();
     if (!this._rootGroup) return;
     this._disposeTree(this._rootGroup);
@@ -459,7 +493,7 @@ class DysonSpherePreview {
   /** 释放一棵子树的几何体与材质（共享的节点几何与背板材质不释放） */
   _disposeTree(root) {
     root.traverse((obj) => {
-      if (obj.isMesh) {
+      if (obj.isMesh || obj.isPoints || obj.isLine) {
         const shared = this._nodeGeoms
           && (obj.geometry === this._nodeGeoms.body || obj.geometry === this._nodeGeoms.cap);
         if (obj.geometry && obj.geometry !== this._sharedBackMaterial && !shared) obj.geometry.dispose();
@@ -642,17 +676,19 @@ class DysonSpherePreview {
     const loop = () => {
       this._animFrameId = requestAnimationFrame(loop);
       const dt = Math.min(this._clock.getDelta(), 0.1);
-      if (this._shellRotationEnabled && this._shellGroups.length) {
+      if (this._shellRotationEnabled && (this._shellGroups.length || this._cloudGroups.length)) {
         const maxR = this._currentScale > 0 ? 1 / this._currentScale : 1;
-        let hasVisibleShell = false;
-        for (const sg of this._shellGroups) {
-          if (!sg.group.visible) continue;
-          hasVisibleShell = true;
+        let hasVisibleRotating = false;
+        const rotate = (sg) => {
+          if (!sg.group.visible || sg.rotates === false) return;
+          hasVisibleRotating = true;
           const omega = this._shellSpeed * maxR / sg.radius;
           rotTmp.setFromAxisAngle(sg.pole, omega * dt);   // 复用临时四元数，避免每帧分配
           sg.group.quaternion.premultiply(rotTmp);
-        }
-        if (hasVisibleShell) this._needsRender = true; // 只有可见壳层旋转时才持续渲染
+        };
+        for (const sg of this._shellGroups) rotate(sg);
+        for (const sg of this._cloudGroups) rotate(sg);
+        if (hasVisibleRotating) this._needsRender = true; // 只有可见的旋转对象才持续渲染
       }
       this._controls.update(); // 处理阻尼惯性（change 事件会置脏）
       // 静止且无交互/变化时跳过渲染（省电）

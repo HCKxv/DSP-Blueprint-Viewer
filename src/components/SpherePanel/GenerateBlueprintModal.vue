@@ -10,7 +10,7 @@ import { useToast } from '../../composables/useToast'
 const toast = useToast()
 
 const PLACEHOLDER = `节点:
-X, Y, Z || 经, 纬  // 例如: 35431,13280,12973 或 116.4,39.9
+X, Y, Z || 经, 纬  // 例如: 3543,1328,1297 或 116.4,39.9
 ...（换行或者间隔“;”表示下一个节点）
 框架:(可选)
 节点A, 节点B, 类型(测地/经纬 || 0/1)  // 例如: 5,9,测地
@@ -19,8 +19,8 @@ X, Y, Z || 经, 纬  // 例如: 35431,13280,12973 或 116.4,39.9
 节点序号, ...  // 例如: 1,2,3
 ...（同上）
 样式:(可选)
-节点,框架,壳面(#RRGGBB)  // 第一行是颜色行, 默认颜色就空着, 例如: ,,#EE1C25
-框架,壳面(编号或名字)  // 样式行，同颜色行
+节点,框架,壳面(#RRGGBB)  // 第一行是颜色行, 可留空, 例如: ,,#EE1C25
+框架,壳面(编号或名字)  // 样式行, 可留空
 
 # 支持全角/半角符号; 节点序号从 1 开始;
 # 壳面样式编号与名字：0-蜂巢, 1-锁子, 2-棱形, 3-鱼鳞, 4-十字, 5-电路, 6-三六边形嵌套;
@@ -130,7 +130,7 @@ onBeforeUnmount(closeGenerateBlueprintModal)
 </script>
 
 <template>
-  <BaseModal :open="store.showGenerateBlueprintModal" title="生成蓝图" :width="640" @close="closeModal">
+  <BaseModal :open="store.showGenerateBlueprintModal" title="生成蓝图" :width="600" @close="closeModal">
     <div class="generate-blueprint">
       <textarea
         v-model="text"
@@ -179,12 +179,21 @@ onBeforeUnmount(closeGenerateBlueprintModal)
   flex: none;
   width: 100%;
   min-height: 340px;
-  max-height: 50vh;
+  max-height: 1200px;
   resize: vertical;
   text-align: left;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.generate-blueprint-input::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.generate-blueprint-input::-webkit-scrollbar-corner {
+  background: var(--bg-secondary);
 }
 
 .generate-blueprint-error {

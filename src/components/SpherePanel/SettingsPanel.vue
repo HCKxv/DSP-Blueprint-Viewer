@@ -9,6 +9,7 @@ import {
   setRotationSpeed,
   setBackground,
   setModel,
+  setSailDensity,
 } from '../../stores/preview'
 import powerIcon from '../../assets/icons/signal/503.png'
 
@@ -24,6 +25,10 @@ function onBackgroundChange(e: Event) {
 function onModelChange(e: Event) {
   const v = (e.target as HTMLSelectElement).value
   setModel(v === 'simplified' ? 'simplified' : 'detailed')
+}
+
+function onSailDensityInput(e: Event) {
+  setSailDensity(Number((e.target as HTMLInputElement).value))
 }
 
 </script>
@@ -112,10 +117,25 @@ function onModelChange(e: Event) {
       </div>
       <div class="menu">
         模型:
-        <select class="speed-select" :value="store.model" @change="onModelChange">
-          <option value="detailed">精细模型</option>
-          <option value="simplified">简化模型</option>
-        </select>
+        <div class="menu">
+          <select class="speed-select" :value="store.model" @change="onModelChange">
+            <option value="detailed">精细模型</option>
+            <option value="simplified">简化模型</option>
+          </select>
+          <label><span v-if="store.model === 'detailed'">
+            帆密度
+            <input
+              class="range-slider density-range"
+              type="range"
+              min="1"
+              max="16"
+              step="1"
+              :value="store.sailDensity"
+              :style="{ '--range-fill': `${((store.sailDensity - 1) / 15) * 100}%` }"
+              @input="onSailDensityInput"
+            />
+          </span></label>
+        </div>
       </div>
     </div>
   </div>
@@ -138,6 +158,18 @@ function onModelChange(e: Event) {
   font-weight: 700;
   color: var(--warn);
   line-height: 1.2;
+}
+
+.density-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.density-range {
+  width: 110px;
+  vertical-align: middle;
 }
 
 .power-icon {

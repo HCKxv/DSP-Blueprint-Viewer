@@ -85,7 +85,7 @@ import GenerateBlueprintModal from './SpherePanel/GenerateBlueprintModal.vue'
 
   .panel-right {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 4fr);
     grid-template-rows: auto auto;
     grid-template-areas:
       "power input"

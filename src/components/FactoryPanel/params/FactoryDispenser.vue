@@ -237,13 +237,13 @@ const COLORS: Record<string, string> = {
     <div class="factory-dispenser-power">
       <span class="factory-selection-label">最大充能功率</span>
       <input
-        class="factory-dispenser-range"
+        class="range-slider"
         type="range"
         :min="POWER_MIN"
         :max="POWER_MAX"
         :step="POWER_STEP"
         :value="powerAt"
-        :style="{ '--factory-range-fill': powerFill }"
+        :style="{ '--range-fill': powerFill }"
         @input="onPowerInput"
       />
       <span class="factory-dispenser-power-value">{{ powerText }}</span>
@@ -399,42 +399,6 @@ const COLORS: Record<string, string> = {
   gap: 8px;
   font-size: 14px;
   color: var(--fg-secondary);
-}
-
-.factory-dispenser-range {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 4px;
-  margin: 0;
-  border-radius: 2px;
-  background: linear-gradient(
-    90deg,
-    var(--accent) 0%,
-    var(--accent) var(--factory-range-fill, 0%),
-    var(--line) var(--factory-range-fill, 0%),
-    var(--line) 100%
-  );
-  outline: none;
-  cursor: pointer;
-}
-
-.factory-dispenser-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--thumb);
-  border: 2px solid var(--accent);
-}
-
-.factory-dispenser-range::-moz-range-thumb {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--thumb);
-  border: 2px solid var(--accent);
 }
 
 .factory-dispenser-power-value {

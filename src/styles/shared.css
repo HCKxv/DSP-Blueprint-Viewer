@@ -375,3 +375,46 @@
   vertical-align: -3px;
   margin: 0 1px;
 }
+
+/* 通用滑杆，--range-fill 由使用方给出 */
+.range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  min-width: 40px;
+  height: 4px;
+  margin: 0;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) 0%,
+    var(--accent) var(--range-fill, 0%),
+    var(--line) var(--range-fill, 0%),
+    var(--line) 100%
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--thumb);
+  border: 2px solid var(--accent);
+}
+
+.range-slider::-moz-range-thumb {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--thumb);
+  border: 2px solid var(--accent);
+}
+
+.range-slider:disabled {
+  cursor: default;
+  opacity: 0.45;
+}

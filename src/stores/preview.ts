@@ -19,6 +19,7 @@ export interface DysonPreview {
   setSunColor(luminosity: number): void
   setBackgroundMode(mode: 'plain' | 'star'): void
   setModel(model: 'detailed' | 'simplified'): void
+  setSailDensity(density: number): void
 }
 
 const toast = useToast()
@@ -44,8 +45,9 @@ const store = reactive({
   gridVisible: true,
   rotateEnabled: true,
   speed: 0.05,
-  background: 'plain' as 'plain' | 'star',
+  background: 'star' as 'plain' | 'star',
   model: 'detailed' as 'detailed' | 'simplified',
+  sailDensity: 8,
   menuCollapsed: true,
 
   showCopyShellModal: false,
@@ -74,6 +76,9 @@ function loadDisplaySettings() {
   if (data.speed === 0.01 || data.speed === 0.05 || data.speed === 0.2) store.speed = data.speed
   if (data.background === 'plain' || data.background === 'star') store.background = data.background
   if (data.model === 'detailed' || data.model === 'simplified') store.model = data.model
+  if (typeof data.sailDensity === 'number' && Number.isFinite(data.sailDensity)) {
+    store.sailDensity = Math.max(1, Math.min(16, Math.round(data.sailDensity)))
+  }
 }
 
 /** 将显示设置写入 localStorage */
@@ -85,6 +90,7 @@ function saveDisplaySettings() {
       speed: store.speed,
       background: store.background,
       model: store.model,
+      sailDensity: store.sailDensity,
     }))
   } catch {
     /* localStorage 不可用（隐私模式等）时忽略 */
@@ -95,7 +101,7 @@ loadDisplaySettings()
 
 // 显示设置变化时自动保存
 watch(
-  () => [store.gridVisible, store.rotateEnabled, store.speed, store.background, store.model] as const,
+  () => [store.gridVisible, store.rotateEnabled, store.speed, store.background, store.model, store.sailDensity] as const,
   saveDisplaySettings,
 )
 
@@ -114,6 +120,7 @@ export function setPreview(instance: DysonPreview | null) {
   instance.setRotationSpeed(store.speed)
   instance.setBackgroundMode(store.background)
   instance.setModel(store.model)
+  instance.setSailDensity(store.sailDensity)
 
   instance.setSunColor(clampLum(store.luminosity))
   if (store.parsed) {
@@ -408,6 +415,12 @@ export function setModel(model: 'detailed' | 'simplified') {
   store.model = model
   preview.value?.setModel(model)
   if (store.parsed) preview.value?.render(toRaw(store.parsed))
+}
+
+/** 太阳帆密度倍率 */
+export function setSailDensity(density: number) {
+  store.sailDensity = Math.max(1, Math.min(16, Math.round(density)))
+  preview.value?.setSailDensity(store.sailDensity)
 }
 
 /** 处理拖放得到的蓝图文本/文件内容，校验后自动解析 */

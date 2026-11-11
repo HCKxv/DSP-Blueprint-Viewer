@@ -339,13 +339,13 @@ function onClearItem(index: number) {
             >{{ lockText(Number(row.lockAmount ?? 0)) }}</button>
           </div>
           <input
-            class="factory-station-range factory-storage-range"
+            class="range-slider factory-storage-range"
             type="range"
             :min="MIN_ITEM_AMOUNT"
             :max="itemMax"
             :step="ITEM_AMOUNT_STEP"
             :value="Number(row.max ?? 0)"
-            :style="{ '--factory-range-fill': `${(Number(row.max ?? 0) / itemMax) * 100}%` }"
+            :style="{ '--range-fill': `${(Number(row.max ?? 0) / itemMax) * 100}%` }"
             @input="onMaxSlide(index, $event)"
           />
         </div>
@@ -390,14 +390,14 @@ function onClearItem(index: number) {
         <span class="factory-station-label">{{ field.label }}</span>
 
         <input
-          class="factory-station-range"
+          class="range-slider"
           type="range"
           :min="fieldMin(field)"
           :max="fieldMax(field)"
           :step="field.step"
           :value="sliderAt(field)"
           :disabled="field.key === 'pilerCount' && pilerTech"
-          :style="{ '--factory-range-fill': `${((sliderAt(field) - fieldMin(field)) / (fieldMax(field) - fieldMin(field))) * 100}%` }"
+          :style="{ '--range-fill': `${((sliderAt(field) - fieldMin(field)) / (fieldMax(field) - fieldMin(field))) * 100}%` }"
           @input="onSlide(field, $event)"
         />
         <span class="factory-station-value">{{ display(field) }}</span>
@@ -431,51 +431,6 @@ function onClearItem(index: number) {
 .factory-station {
   display: flex;
   flex-direction: column;
-}
-
-/* ── 滑块（参数区与物品栏共用轨道的画法）──
-   --factory-range-fill 由组件按比例给出 */
-.factory-station-range {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  min-width: 40px;
-  height: 4px;
-  margin: 0;
-  border-radius: 2px;
-  background: linear-gradient(
-    90deg,
-    var(--accent) 0%,
-    var(--accent) var(--factory-range-fill, 0%),
-    var(--line) var(--factory-range-fill, 0%),
-    var(--line) 100%
-  );
-  outline: none;
-  cursor: pointer;
-}
-
-.factory-station-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--thumb);
-  border: 2px solid var(--accent);
-}
-
-.factory-station-range::-moz-range-thumb {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--thumb);
-  border: 2px solid var(--accent);
-}
-
-/* 「使用科技上限」勾上时停在上限位置并置灰 */
-.factory-station-range:disabled {
-  cursor: default;
-  opacity: 0.45;
 }
 
 /* ── 参数区: 四列 —— 标签 | 滑块 | 数值 | 勾选。标签与数值定宽、勾选按内容，
@@ -646,17 +601,11 @@ function onClearItem(index: number) {
 
 /* 高度与输入框一样，细轨画在中间（多出来的高度只是可点区域） */
 .factory-storage-range {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
   min-width: 0;
   height: var(--storage-line-h, 22px);
   padding: 0;
-  margin: 0;
-  border: none;
   background: none;
-  outline: none;
-  cursor: pointer;
+  border: none;
 }
 
 .factory-storage-range::-webkit-slider-runnable-track {
@@ -665,8 +614,8 @@ function onClearItem(index: number) {
   background: linear-gradient(
     90deg,
     var(--accent) 0%,
-    var(--accent) var(--factory-range-fill, 0%),
-    var(--line) var(--factory-range-fill, 0%),
+    var(--accent) var(--range-fill, 0%),
+    var(--line) var(--range-fill, 0%),
     var(--line) 100%
   );
 }
@@ -683,24 +632,9 @@ function onClearItem(index: number) {
   background: var(--accent);
 }
 
-/* 轨 4px、钮 11px → 上移 (11 − 4) / 2 */
+/* 公共 thumb 是 11px，这里只补竖直居中偏移 */
 .factory-storage-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 11px;
-  height: 11px;
   margin-top: -3.5px;
-  border-radius: 50%;
-  background: var(--thumb);
-  border: 2px solid var(--accent);
-}
-
-.factory-storage-range::-moz-range-thumb {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--thumb);
-  border: 2px solid var(--accent);
 }
 
 /* 竖直居中（行星内站只有「本地」，于是落在这一栏正中） */
