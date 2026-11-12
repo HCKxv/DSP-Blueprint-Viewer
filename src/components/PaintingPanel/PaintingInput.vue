@@ -101,7 +101,7 @@ function onClear() {
 
       <template v-else>
         <div class="image-drop-hint">点击选择图片，或拖放到此处</div>
-        <div class="image-drop-sub">支持 PNG / JPG / WebP</div>
+        <div class="image-drop-sub">支持 PNG / JPG</div>
       </template>
 
       <div class="drop-hint" :class="{ show: dragging }">📂 释放图片以载入</div>

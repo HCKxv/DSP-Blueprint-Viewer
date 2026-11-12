@@ -6,9 +6,10 @@
  * lib/factory/cameraRig.js，坐标与单位换算在 lib/factory/planetFrames.js；
  * 本文件只管场景与蓝图、事件分发、拾取与图层开关。
  *
- * 操作: 左键拖动 / **W/A/S/D** 让观察点在球面上走、左键**点**建筑选中并高亮（再点同一栋或点空处取消）、
+ * 操作: 左键拖动 / **W/A/S/D** 让观察点在球面上走、
+ *       左键**点**建筑选中并高亮（再点同一栋或点空处取消）、
  *       中键拖动转视角、滚轮缩放；右键不接管。
- *       触屏: 双指拖动挪观察点 + 双指捏合缩放、单指长按选中建筑（判定在 cameraRig，这里拿落点去拾取）。
+ *       触屏: 双指拖动挪观察点 + 双指捏合缩放 + 双指扭动转视角、单指长按选中建筑（判定在 cameraRig，这里拿落点去拾取）。
  *
  * 用法: init(canvas) / setBlueprint(data, resetView)（null = 清空）/ setGridVisible(visible) /
  *       setLayerVisible('foundation'|'buildings'|'belts'|'inserters'|'icons', visible) / setTargetLatitude(lat, north) /
@@ -707,6 +708,8 @@ class FactoryPreview {
     this._rig = new CameraRig();
     this._rig.attach(canvas, this._camera);
     this._rig.setMoveKeys(this._moveKeys);
+    // 触屏长按到点立刻选中（不等抬手）: rig 只给落点，拾取与高亮在这里
+    this._rig.setLongPressListener(({ x, y }) => this._clickSelect(x, y));
 
     // 左键 / 中键 / 触屏拖动: 按下在画布上，移动/抬起挂到 window，拖出面板也不会断
     // （按下与拖动直接交给 rig；抬起还要接拾取，见 _onPointerUp）
@@ -2465,16 +2468,11 @@ class FactoryPreview {
   }
 
   /**
-   * 抬起: 取「这次算不算点了一下 / 长按」的结论 —— 算就拾取（rig 只给结论与落点）。
-   * 顺序要紧: **先取长按再 endPointer**，抬手时 endPointer 会把长按那份收掉。
+   * 抬起: 取「鼠标左键算不算点了一下」的结论，算就拾取。
+   * 触屏长按在到点那一刻已经选中了（见 setLongPressListener），抬手这里不再做什么。
    */
   _onPointerUp(event) {
-    const longPress = this._rig?.consumeLongPress();
     this._rig?.endPointer(event);
-    if (longPress) {
-      this._clickSelect(longPress.x, longPress.y);
-      return;
-    }
     if (this._rig?.consumeClick()) this._clickSelect(event.clientX, event.clientY);
   }
 

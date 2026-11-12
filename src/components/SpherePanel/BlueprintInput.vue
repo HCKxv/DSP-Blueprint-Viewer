@@ -152,11 +152,11 @@ function onDrop(e: DragEvent) {
   align-items: center;
   /* 标题与按钮容器放不下时换行 */
   flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: 4px 6px;
   font-size: 13px;
   color: var(--fg-secondary);
   flex-shrink: 0;
-  padding: 8px 5px 0 5px;
+  padding: 8px 4px 0 4px;
 }
 
 .input-header span {

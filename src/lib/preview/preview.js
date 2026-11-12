@@ -10,7 +10,7 @@
  *   4. setGridVisible(visible)       刻度显示开关
  *   5. setRotationEnabled(enabled)   旋转开关
  *   6. setRotationSpeed(speed)       转速修改（建议 0.01 慢 / 0.05 中 / 0.20 快）
- *   7. setSunColor(luminosity)       根据光度系数更新恒星颜色
+ *   7. setSunColor(luminosity)       根据光度系数连续更新恒星色/背面色/自发光
  *   8. setBackgroundMode(mode)       背景切换 ('plain'=纯色 | 'star'=星空)
  *   9. setModel(model)               模型精度 ('detailed' | 'simplified')
  *  10. exportImage(scale)            导出当前预览画面（返回 PNG 画布）
@@ -61,6 +61,11 @@ import { createStarfield, disposeStarfield, STARFIELD_BG_COLOR } from './starfie
 /** 本工具的星空种子 */
 const STARFIELD_SEED = 20260214;
 
+/** linear RGB 数组 → THREE.Color（允许 >1，交给 bloom） */
+function toLinearColor(rgb) {
+  return new THREE.Color().setRGB(rgb[0], rgb[1], rgb[2]);
+}
+
 // 泛光参数
 const BLOOM_STRENGTH = 0.4;
 const BLOOM_RADIUS = 0.3;
@@ -108,6 +113,7 @@ class DysonSpherePreview {
 
     this._nodeGeoms = null;
     this._sharedBackMaterial = null;
+    this._frameBackColor = null;
     this._starEmissionColor = null;
     this._model = 'detailed';
     this._sailDensity = 8;
@@ -125,8 +131,11 @@ class DysonSpherePreview {
     if (this._renderer) this.dispose();
 
     if (!this._nodeGeoms) this._nodeGeoms = buildNodeGeometries();
-    if (!this._sharedBackMaterial) this._sharedBackMaterial = new THREE.MeshBasicMaterial({ color: getStarColors(1.0).back, side: THREE.BackSide, depthWrite: true });
-    if (!this._starEmissionColor) this._starEmissionColor = sunColorOf(getStarColors(1.0).core);
+    const initialStar = getStarColors(1.0);
+    const initialStarColor = toLinearColor(initialStar.star.glow);
+    this._frameBackColor = new THREE.Color(initialStar.back.frame);
+    if (!this._sharedBackMaterial) this._sharedBackMaterial = new THREE.MeshBasicMaterial({ color: initialStar.back.shell, side: THREE.BackSide, depthWrite: true });
+    if (!this._starEmissionColor) this._starEmissionColor = toLinearColor(initialStar.emission);
 
     // 图案贴图异步加载: 提前开始，到位后强制重画一帧
     ensureShellPatternTextures();
@@ -190,14 +199,14 @@ class DysonSpherePreview {
     // 恒星
     this._originSphere = new THREE.Mesh(
       new THREE.SphereGeometry(0.05, 48, 24),
-      new THREE.MeshBasicMaterial({ color: getStarColors(1.0).core })
+      new THREE.MeshBasicMaterial({ color: initialStarColor })
     );
     this._scene.add(this._originSphere);
 
     // 光晕
     this._starGlowInner = new THREE.Mesh(
       new THREE.SphereGeometry(0.068, 32, 16),
-      new THREE.MeshBasicMaterial({ color: getStarColors(1.0).core, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false })
+      new THREE.MeshBasicMaterial({ color: initialStarColor, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     this._scene.add(this._starGlowInner);
 
@@ -305,7 +314,7 @@ class DysonSpherePreview {
           this._setLoading(true, `正在构建壳层 ${done}/${total}`);
           const layer = this._model === 'simplified'
             ? await buildShellSimpleLayer(shData, orbit, this._currentScale, this._sharedBackMaterial)
-            : await buildShellLayer(shData, orbit, this._currentScale, this._nodeGeoms, this._sharedBackMaterial, this._starEmissionColor);
+            : await buildShellLayer(shData, orbit, this._currentScale, this._nodeGeoms, this._sharedBackMaterial, this._starEmissionColor, this._frameBackColor);
           layer.group.visible = gv;
           // 涂色
           const paintCube = applyLayerPainting(this._renderer, layer, 1536);
@@ -422,24 +431,26 @@ class DysonSpherePreview {
   // ─── 7. 更新恒星颜色 ───────────────────────────────────────
 
   /**
-   * 根据光度系数更新恒星颜色
+   * 根据光度系数连续更新恒星色、背面/光照色、框架自发光色
    * @param {number} luminosity  0.1 ~ 10
    */
   setSunColor(luminosity) {
     const lum = Math.max(0.01, Math.min(10, luminosity));
-    const { back, core } = getStarColors(lum);
-    const sunColor = sunColorOf(core);
+    const { star, back, emission } = getStarColors(lum);
+    const starColor = toLinearColor(star.glow);
 
-    if (this._originSphere) this._originSphere.material.color.copy(sunColor);
-    if (this._starGlowInner) this._starGlowInner.material.color.copy(sunColor);
+    if (this._originSphere) this._originSphere.material.color.copy(starColor);
+    if (this._starGlowInner) this._starGlowInner.material.color.copy(starColor);
     if (!this._starEmissionColor) this._starEmissionColor = new THREE.Color();
-    this._starEmissionColor.copy(sunColor);
-    this._sharedBackMaterial.color.copy(new THREE.Color(back));
-    // 背面的克隆材质（带图案补丁）也要跟着换色
+    this._starEmissionColor.setRGB(emission[0], emission[1], emission[2]);
+    // 壳面背面用 _SunColor × 0.73；节点/框架内侧用 back.frame
+    this._frameBackColor.setHex(back.frame);
+    this._sharedBackMaterial.color.setHex(back.shell);
+    // 壳面背面的克隆材质（带图案补丁）也要跟着换色
     for (const sg of this._shellGroups) {
       sg.group.traverse((obj) => {
         if (obj.userData && obj.userData.shellSharedBack === this._sharedBackMaterial) {
-          obj.material.color.copy(new THREE.Color(back));
+          obj.material.color.setHex(back.shell);
         }
       });
     }
@@ -655,6 +666,7 @@ class DysonSpherePreview {
     this._originSphere = null;
     this._starGlowInner = null;
     if (this._sharedBackMaterial) { this._sharedBackMaterial.dispose(); this._sharedBackMaterial = null; }
+    this._frameBackColor = null;
     this._starEmissionColor = null;
     if (this._nodeGeoms) {
       this._nodeGeoms.body?.dispose?.();
@@ -812,12 +824,6 @@ class DysonSpherePreview {
     this._gridGroup.add(labelMesh);
   }
 
-}
-
-function sunColorOf(coreHex) {
-  const c = new THREE.Color(coreHex);
-  const l = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
-  return c.multiplyScalar(Math.max(1, 0.8 / Math.max(l, 0.02)));
 }
 
 export { DysonSpherePreview };

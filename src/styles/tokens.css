@@ -11,7 +11,6 @@
   --fg: #e7ebff;          /* 主文字/标题/输入 */
   --fg-secondary: #bcc8e0;/* 次级标签、菜单、图标、数值 */
   --fg-muted: #7b8aa6;    /* 提示、空态、单位 */
-  --fg-accent: #6ea8ff;   /* 排序箭头、计数等强调文字 */
   --fg-disabled: #6d7a92; /* 禁用态文字 */
 
   /* ── 控件 ── */
@@ -25,6 +24,8 @@
   /* ── 强调 ── */
   --accent: #4364eb;
   --accent-hover: #3451c9;
+  --fg-accent: #6ea8ff;
+  --ok: #63e6a4;
   --danger: #ff8a8a;
   --warn: #ffd866;
 

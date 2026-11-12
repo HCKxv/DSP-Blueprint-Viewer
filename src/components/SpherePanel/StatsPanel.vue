@@ -3,7 +3,7 @@ import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { openGenerateBlueprintModal, store } from '../../stores/preview'
 import StatSection from './StatSection.vue'
 import StatBox from './StatBox.vue'
-import type { StatNode, StatNodeAction } from './statsTree'
+import type { StatNode, StatNodeAction } from '../../lib/preview/statsTree'
 
 const menuActions = ref<StatNodeAction[]>([])
 const menuOpen = ref(false)

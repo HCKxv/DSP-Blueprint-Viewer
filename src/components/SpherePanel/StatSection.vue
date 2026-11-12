@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import StatBox from './StatBox.vue'
-import type { StatNode } from './statsTree'
+import type { StatNode } from '../../lib/preview/statsTree'
 
 const props = defineProps<{ node: StatNode }>()
 const emit = defineEmits<{

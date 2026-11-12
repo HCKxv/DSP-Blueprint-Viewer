@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { StatNode } from './statsTree'
+import type { StatNode } from '../../lib/preview/statsTree'
 
 const props = defineProps<{ node: StatNode }>()
 const emit = defineEmits<{

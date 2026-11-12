@@ -63,7 +63,7 @@ defineExpose({ open: openModal })
 }
 
 .contact-link {
-  color: var(--accent);
+  color: var(--fg-accent);
   text-decoration: none;
   overflow-wrap: anywhere;
 }

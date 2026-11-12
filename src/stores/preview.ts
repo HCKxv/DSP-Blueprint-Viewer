@@ -4,7 +4,7 @@ import { extractSingleShell, extractStructure } from '../lib/blueprint/sphere/sp
 import { stringifyBlueprint } from '../lib/blueprint/sphere/sphereEncoder.js'
 import { computePower, fmtKW } from '../lib/power/power.js'
 import { computePointsAsync } from '../lib/power/powerAsync.js'
-import { buildStatsTree, type StatNode } from '../components/SpherePanel/statsTree'
+import { buildStatsTree, type StatNode } from '../lib/preview/statsTree'
 import { saveAsText } from '../utils/download'
 import { useToast } from '../composables/useToast'
 

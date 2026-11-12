@@ -9,3 +9,6 @@ export const enableUrlLoad = true
 
 /** 是否渲染页脚 */
 export const showFooter = true
+
+/** 是否显示页头右侧的 PWA 状态 */
+export const showPwaStatus = true

@@ -2,7 +2,9 @@
 import { computed } from 'vue'
 import pkg from '../../package.json'
 import ToolSlider from './ToolSlider.vue'
+import PwaStatus from './PwaStatus.vue'
 import { TOOLS, activeTool } from '../stores/tool'
+import { showPwaStatus } from '../config/app'
 
 const version = pkg.version.split('.').slice(0, 2).join('.')
 
@@ -22,10 +24,8 @@ const titleTool = computed(() => {
 
 <template>
   <div class="app-header">
-    <a href="?" title="重置页面">
-      <img class="app-logo" :src="logo" alt="戴森球蓝图预览" />
-    </a>
-    戴森球计划·{{ titleTool }} V{{ version }}
+    <img class="app-logo" :src="logo" :title="`by.${name}`" />
+    <span>戴森球计划<span class="header-extra">·{{ titleTool }} V{{ version }}</span></span>
 
     <ToolSlider
       v-model="activeTool"
@@ -33,7 +33,7 @@ const titleTool = computed(() => {
       :items="toolItems"
     />
 
-    <span class="header-author">by.{{ name }}</span>
+    <PwaStatus v-if="showPwaStatus" class="header-pwa-status" />
   </div>
 </template>
 
@@ -60,12 +60,9 @@ const titleTool = computed(() => {
   display: block;
 }
 
-.header-author {
+/* PWA 状态：靠页头最右 */
+.header-pwa-status {
   margin-left: auto;
-  font-weight: normal;
-  font-size: 12px;
-  opacity: 0.55;
-  white-space: nowrap;
 }
 
 /* 靠左、每档等宽（指示块才能按档位平移对正） */
@@ -79,12 +76,16 @@ const titleTool = computed(() => {
 }
 
 @media (max-width: 960px) {
+  .header-extra {
+    display: none;
+  }
+
   .header-tool-switch {
     order: 3;
     margin-left: 0;
   }
 
-  .header-author {
+  .header-pwa-status {
     order: 4;
   }
 }

@@ -77,7 +77,7 @@ const thumbStyle = computed(() => ({ transform: `translateX(${Math.max(0, active
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: var(--radius-xs);
   background: transparent;
   color: var(--fg-secondary);

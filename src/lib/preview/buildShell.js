@@ -65,15 +65,15 @@ function computeLayerInWorker(payload, timeoutMs = LAYER_BUILD_TIMEOUT_MS) {
   });
 }
 
-// 材质色固定；背面色直接用壳面背面的 sharedBackMaterial 颜色
+// 材质色固定；壳面背面用 sharedBackMaterial，节点/框架内侧用 backColor
 const FIXED_FRAME_MATERIAL = 0x3f464d;
 const FIXED_NODE_MATERIAL = 0x4a4f55;
 const FRAME_MATERIAL_TINT = 0.02;
 const NODE_MATERIAL_TINT = 0.02;
 
-/** 框架/节点共用材质：固定材质色，按涂色计算发光，内侧面混入壳面背色。 */
+/** 框架/节点共用材质：固定材质色，按涂色计算发光，内侧面混入 backColor。 */
 function makeDysonColorMaterial({
-  isNode, emissiveMap, emissionIntensity, sharedBackMaterial, starEmissionColor, materialTint = 0,
+  isNode, emissiveMap, emissionIntensity, backColor, starEmissionColor, materialTint = 0,
 }) {
   const mat = new THREE.MeshStandardMaterial({
     color: isNode ? FIXED_NODE_MATERIAL : FIXED_FRAME_MATERIAL,
@@ -86,7 +86,7 @@ function makeDysonColorMaterial({
   if (isNode) mat.defines = { DYSON_NODE: '' };
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uStarEmission = { value: starEmissionColor ?? new THREE.Color(0xffffff) };
-    shader.uniforms.uBackColor = { value: sharedBackMaterial?.color ?? new THREE.Color(0xffffff) };
+    shader.uniforms.uBackColor = { value: backColor };
     shader.uniforms.uBackStrength = { value: 1.0 };
     shader.uniforms.uEmissionIntensity = { value: emissionIntensity };
     shader.uniforms.uMaterialTint = { value: materialTint };
@@ -193,7 +193,7 @@ function assembleShellCells(bucketList) {
 }
 
 /** 节点实例。 */
-function assembleNodes(nodes, shellGroup, nodeGeoms, scale, sharedBackMaterial, starEmissionColor) {
+function assembleNodes(nodes, shellGroup, nodeGeoms, scale, starEmissionColor, backColor) {
   if (!nodes || !nodes.count || !nodeGeoms?.body) return;
   // 每层克隆一份，挂本层实例属性
   const geom = nodeGeoms.body.clone();
@@ -202,7 +202,7 @@ function assembleNodes(nodes, shellGroup, nodeGeoms, scale, sharedBackMaterial, 
     isNode: true,
     emissiveMap: getFrameEmission(0),
     emissionIntensity: 5.5,
-    sharedBackMaterial,
+    backColor,
     starEmissionColor,
     materialTint: NODE_MATERIAL_TINT,
   });
@@ -260,7 +260,7 @@ function buildFrameGeometry(data) {
 }
 
 /** 框架实例。 */
-function assembleFrames(frames, shellGroup, sharedBackMaterial, starEmissionColor) {
+function assembleFrames(frames, shellGroup, starEmissionColor, backColor) {
   const instances = frames?.instances;
   if (!instances || !instances.length) return;
 
@@ -276,7 +276,7 @@ function assembleFrames(frames, shellGroup, sharedBackMaterial, starEmissionColo
       isNode: false,
       emissiveMap: getFrameEmission(style),
       emissionIntensity: 2.0,
-      sharedBackMaterial,
+      backColor,
       starEmissionColor,
       materialTint: FRAME_MATERIAL_TINT,
     });
@@ -345,17 +345,18 @@ function assemblePainting(parts) {
  * @param {{body: THREE.BufferGeometry, cap: THREE.BufferGeometry|null}} nodeGeoms  共享的节点几何
  * @param {THREE.Material} sharedBackMaterial  壳面背面材质
  * @param {THREE.Color} starEmissionColor       未涂色框架发光色
+ * @param {THREE.Color} backColor               节点/框架内侧混入的光照色
  * @returns {Promise<{group: THREE.Group, pole: THREE.Vector3, cells: THREE.Group|null, paintingGroup: THREE.Group|null}>}
  *          group 为整层（含背面），cells 仅正面细胞，paintingGroup 为涂色烘焙源
  */
-export async function buildShellLayer(shData, orbit, scale, nodeGeoms, sharedBackMaterial, starEmissionColor) {
+export async function buildShellLayer(shData, orbit, scale, nodeGeoms, sharedBackMaterial, starEmissionColor, backColor) {
   const layer = await computeLayerInWorker({ shData, orbit, scale });
   if (!layer) throw new Error('Worker 未返回壳层数据');
 
   const shellGroup = new THREE.Group();
 
-  assembleNodes(layer.nodes, shellGroup, nodeGeoms, scale, sharedBackMaterial, starEmissionColor);
-  assembleFrames(layer.frames, shellGroup, sharedBackMaterial, starEmissionColor);
+  assembleNodes(layer.nodes, shellGroup, nodeGeoms, scale, starEmissionColor, backColor);
+  assembleFrames(layer.frames, shellGroup, starEmissionColor, backColor);
 
   const cellMesh = assembleShellCells(layer.cells);
   if (cellMesh) {
