@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, defineAsyncComponent } from 'vue'
+import { onMounted, onBeforeUnmount, ref } from 'vue'
+import PwaStatus from './PwaStatus.vue'
 import ChangelogModal from './ChangelogModal.vue'
 import ContactModal from './ContactModal.vue'
 
+const showPwaStatus = import.meta.env.VITE_SHOW_PWA_STATUS === 'true'
 const changelogModal = ref<InstanceType<typeof ChangelogModal> | null>(null)
 const contactModal = ref<InstanceType<typeof ContactModal> | null>(null)
-
-const VisitorStats = defineAsyncComponent(() =>
-  import('./VisitorStats.vue')
-)
 
 interface FooterLink {
   label: string
@@ -45,9 +43,6 @@ function normalizeContact(raw: unknown): ContactItem[] {
   return items
 }
 
-const visitorStatsAllowed = import.meta.env.PROD
-const showVisitorStats = ref(false)
-
 // 页脚配置从 footer-links.json 加载
 async function loadLinks() {
   try {
@@ -57,9 +52,6 @@ async function loadLinks() {
     const data = await res.json()
     links.value = Array.isArray(data?.links) ? data.links : []
     contact.value = normalizeContact(data?.contact)
-    if (visitorStatsAllowed && typeof data?.showVisitorStats === 'boolean') {
-      showVisitorStats.value = data.showVisitorStats
-    }
   } catch {
     links.value = []
     contact.value = []
@@ -117,6 +109,10 @@ onBeforeUnmount(() => {
 <template>
   <div ref="rootEl" class="footer-bar">
     <a href="#"><div class="footer-item">▲</div></a>
+    <template v-if="showPwaStatus" >
+      |
+      <PwaStatus/>
+    </template>
     |
     <button type="button" class="footer-item" @click="changelogModal?.open()">
       更新日志
@@ -127,15 +123,12 @@ onBeforeUnmount(() => {
         <div class="footer-item">{{ link.label }}</div>
       </a>
     </template>
-
     <template v-if="contact.length">
       |
       <button type="button" class="footer-item" @click="contactModal?.open()">
         联系方式
       </button>
     </template>
-
-    <VisitorStats v-if="showVisitorStats" />
   </div>
   <ChangelogModal ref="changelogModal" />
   <ContactModal ref="contactModal" :items="contact" />
@@ -144,7 +137,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .footer-bar {
   padding: 14px 20px;
-  /* 页脚用比面板更深一档的底色，单独保留 */
   background: #0b1020;
   border-top: 2px solid transparent;
   border-image: linear-gradient(90deg, var(--line) 0%, var(--accent) 25%, var(--warn) 50%, var(--accent) 75%, var(--line) 100%) 1;
@@ -182,10 +174,5 @@ onBeforeUnmount(() => {
   padding: 1px 4px;
   border-radius: var(--radius-xs);
   border: 1px solid var(--line);
-}
-
-.footer-center {
-  display: flex;
-  align-items: center;
 }
 </style>

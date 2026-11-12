@@ -7,7 +7,7 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'sphere.svg'],
+      includeAssets: ['favicon.ico', 'Loog.svg'],
       injectRegister: 'auto',
       manifest: {
         name: '戴森球计划蓝图工具',
@@ -21,7 +21,7 @@ export default defineConfig({
         orientation: 'any',
         icons: [
           {
-            src: 'sphere.svg',
+            src: 'Loog.svg',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any maskable',
@@ -29,18 +29,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,svg,json}'],
-        runtimeCaching: [
-          {
-            urlPattern: /\/assets\/.*\.png$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'assets-png',
-              expiration: { maxEntries: 600, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-        ],
+        globPatterns: ['**/*.{js,css,html,ico,svg,png,json}'],
+        globIgnores: ['changelog.json', 'footer-links.json'],
       },
       // 开发服务器不启用 PWA
       devOptions: {

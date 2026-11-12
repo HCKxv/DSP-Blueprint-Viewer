@@ -146,7 +146,6 @@ function onSailDensityInput(e: Event) {
   text-align: center;
   padding: 12px 0;
   border-bottom: 1px solid var(--line);
-  margin-bottom: 8px;
 }
 
 .power-main {

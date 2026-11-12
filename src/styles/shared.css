@@ -3,7 +3,7 @@
 
 /* ── 按钮 ── */
 .btn {
-  padding: 10px 12px;
+  padding: 10px 10px;
   border-radius: var(--radius-sm);
   font-size: 15px;
 }
@@ -340,7 +340,7 @@
 
 /* 空态 / 报错态在 StatsPanel 里也用它 */
 .stat-box {
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: var(--bg-secondary);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -367,7 +367,7 @@
   word-break: break-word;
 }
 
-/* 由 lib/markup/richTextDom 生成，不经过组件模板，样式只能挂在类上 */
+/* 由 factory/ui/richTextDom 生成，不经过组件模板，样式只能挂在类上 */
 .rich-icon {
   width: 17px;
   height: 17px;

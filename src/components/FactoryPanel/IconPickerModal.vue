@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import type { IconCategories, IconRef } from '../../lib/markup/itemIcons'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
+import type { IconCategories, IconRef } from '../../factory/ui/itemIcons'
+import { itemIconUrl } from '../../factory/ui/itemIcons'
 import RecipeTip from './RecipeTip.vue'
 
 /**

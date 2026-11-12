@@ -26,7 +26,7 @@
 .col {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -34,13 +34,13 @@
   background: var(--bg-panel);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 14px;
+  padding: 10px;
   overflow: hidden;
   min-width: 0;
 }
 
 .panel h2 {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   font-size: 1.0rem;
 }
 

@@ -2,9 +2,9 @@
 /** 统计 */
 import { computed, ref } from 'vue'
 import { factory } from '../../stores/factory'
-import { 计算生产详情, 计算功率, 计算电力设施 } from '../../lib/factory/stats.js'
-import { itemName } from '../../lib/blueprint/factory/factoryItems.js'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
+import { 计算生产详情, 计算功率, 计算电力设施 } from '../../factory/stats.js'
+import { itemName } from '../../blueprint/factory/factoryItems.js'
+import { itemIconUrl } from '../../factory/ui/itemIcons'
 import FactorySelect from './FactorySelect.vue'
 import icarusIcon from '../../assets/factory/伊卡洛斯.png'
 

@@ -2,12 +2,12 @@
 /** 详情: 预览里点中的那栋建筑 */
 import { computed, reactive, ref, watch } from 'vue'
 import { deleteBuilding, editBuilding, editLabGroup, editStationType, factory, linkedLabBuildings, reverseInserter, selectedBuilding, selectedBuildingCoord, selectedBuildingEndCoord } from '../../stores/factory'
-import { isAssembler, isBelt, isInserter, isLab, isStation, isTurret, itemName } from '../../lib/blueprint/factory/factoryItems.js'
-import { cloneData } from '../../lib/blueprint/clonePlain.js'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
-import type { IconCategories } from '../../lib/markup/itemIcons'
-import { ICON_CATEGORIES } from '../../lib/markup/iconCatalog'
-import { useToast } from '../../composables/useToast'
+import { isAssembler, isBelt, isInserter, isLab, isStation, isTurret, itemName } from '../../blueprint/factory/factoryItems.js'
+import { cloneData } from '../../utils/clonePlain.js'
+import { itemIconUrl } from '../../factory/ui/itemIcons'
+import type { IconCategories } from '../../factory/ui/itemIcons'
+import { ICON_CATEGORIES } from '../../factory/ui/iconCatalog'
+import { show } from '../../stores/toast'
 import FactoryAssembler from './params/FactoryAssembler.vue'
 import FactoryBelt from './params/FactoryBelt.vue'
 import FactoryDispenser from './params/FactoryDispenser.vue'
@@ -19,8 +19,6 @@ import FactoryParamSelect from './params/FactoryParamSelect.vue'
 import FactoryStation from './params/FactoryStation.vue'
 import FactoryStorage from './params/FactoryStorage.vue'
 import FactoryTurret from './params/FactoryTurret.vue'
-
-const toast = useToast()
 
 /** 储液罐的输出/输入；参数解析后是 bool */
 const TANK_SWITCH_OPTIONS = [
@@ -180,7 +178,7 @@ function onSave() {
     : editBuilding(Number(building.index), { ...staged })
   // 保存成功就清空暂存
   if (ok) resetStaged()
-  toast.show(ok ? '已保存该建筑的修改' : '保存失败：没找到该建筑')
+  show(ok ? '已保存该建筑的修改' : '保存失败：没找到该建筑')
 }
 
 /** 删除选中的建筑: 立即生效 */
@@ -191,10 +189,10 @@ function onDeleteBuilding() {
   const index = Number(building.index)
   const label = name.value
   if (!deleteBuilding(index)) {
-    toast.show('删除失败：没找到该建筑')
+    show('删除失败：没找到该建筑')
     return
   }
-  toast.show(`已删除 #${index} ${label}`)
+  show(`已删除 #${index} ${label}`)
 }
 
 /** 反转分拣器: 交换抓取端和放下端（立即生效） */
@@ -202,7 +200,7 @@ function onReverseInserter() {
   const building = selectedBuilding.value
   if (!building) return
   const ok = reverseInserter(Number(building.index))
-  toast.show(ok ? '已反转分拣器' : '反转失败：没找到该分拣器')
+  show(ok ? '已反转分拣器' : '反转失败：没找到该分拣器')
 }
 
 // 换选中建筑时清空暂存和提示

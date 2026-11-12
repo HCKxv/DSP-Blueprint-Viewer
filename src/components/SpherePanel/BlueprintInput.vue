@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { store, parseBlueprint, resetBlueprint, handleBlueprintText } from '../../stores/preview'
-import { useToast } from '../../composables/useToast'
+import { show } from '../../stores/toast'
 
-const toast = useToast()
 const dragging = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -13,7 +12,7 @@ const canReset = computed(() => !!(store.parsed || store.errorMessage))
 function readFile(file: File) {
   const reader = new FileReader()
   reader.onload = (ev) => handleBlueprintText(String(ev.target?.result ?? ''))
-  reader.onerror = () => toast.show('读取文件失败')
+  reader.onerror = () => show('读取文件失败')
   reader.readAsText(file)
 }
 
@@ -34,7 +33,7 @@ async function onPaste() {
   try {
     store.input = await navigator.clipboard.readText()
   } catch {
-    toast.show('无法读取剪贴板，请手动粘贴')
+    show('无法读取剪贴板，请手动粘贴')
   }
 }
 
@@ -43,9 +42,9 @@ async function onCopy() {
   if (!text) return
   try {
     await navigator.clipboard.writeText(text)
-    toast.show('成功复制到剪贴板')
+    show('成功复制到剪贴板')
   } catch {
-    toast.show('无法复制到剪贴板')
+    show('无法复制到剪贴板')
   }
 }
 
@@ -82,7 +81,7 @@ function onDrop(e: DragEvent) {
 
   const text = dt.getData('text/plain')
   if (!text) {
-    toast.show('未检测到文件或文本')
+    show('未检测到文件或文本')
     return
   }
   handleBlueprintText(text)
@@ -156,7 +155,7 @@ function onDrop(e: DragEvent) {
   font-size: 13px;
   color: var(--fg-secondary);
   flex-shrink: 0;
-  padding: 8px 4px 0 4px;
+  padding: 6px 3px 0 3px;
 }
 
 .input-header span {

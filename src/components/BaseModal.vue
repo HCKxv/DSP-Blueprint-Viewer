@@ -76,13 +76,13 @@ const boxStyle = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   font-weight: bold;
 }
 
 .modal-body {
-  padding: 12px 16px;
+  padding: 8px 10px;
   overflow-y: auto;
 }
 </style>

@@ -4,7 +4,6 @@ const DEFAULT_WHITELIST = [
   'raw.githubusercontent.com/HCKxv/',
   'raw.githubusercontent.com/DSPBluePrints/',
 ]
-const PROXY_HOSTS = ['gh-proxy.org', 'ghfast.top']
 
 /** 蓝图种类 */
 export type BlueprintKind = 'sphere' | 'factory'
@@ -38,18 +37,12 @@ export function clearTxtParamFromUrl(): boolean {
   }
 }
 
-function isUrlAllowed(url: URL): boolean {
-  let sourceUrl = url
-  if (PROXY_HOSTS.includes(url.hostname)) {
-    try {
-      sourceUrl = new URL(url.pathname.replace('/', ''), window.location.href)
-    } catch {
-      return false
-    }
-  }
-  const hostPath = sourceUrl.hostname + sourceUrl.pathname
-  const dirPath = hostPath.endsWith('/') ? hostPath : `${hostPath}/`
-  return DEFAULT_WHITELIST.some((prefix) => dirPath.startsWith(prefix.endsWith('/') ? prefix : `${prefix}/`))
+const ensureSlash = (s: string): string => s.endsWith('/') ? s : `${s}/`
+
+function isUrlAllowed(url: URL, list: string[] = DEFAULT_WHITELIST): boolean {
+  const dirPath = ensureSlash(url.hostname + url.pathname)
+  return list.some((prefix) => dirPath.startsWith(ensureSlash(prefix))
+  )
 }
 
 export async function loadBlueprintFromUrl({
@@ -65,10 +58,10 @@ export async function loadBlueprintFromUrl({
 
     onLoadStart?.()
     const resolved = new URL(txtUrl, window.location.href)
-    const isSameOrigin = resolved.hostname === window.location.hostname
-    if (!isSameOrigin && !isUrlAllowed(resolved)) {
-      throw new Error('未知的蓝图链接')
-    }
+    // const isSameOrigin = resolved.origin === window.location.origin
+    // if (!isSameOrigin && !isUrlAllowed(resolved)) {
+    //   throw new Error('未知的蓝图链接')
+    // }
 
     const response = await fetch(resolved.href)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)

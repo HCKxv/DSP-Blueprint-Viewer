@@ -7,12 +7,10 @@ import {
   extractShellColorList,
   replaceBlueprintShellColors,
   rgbaColorKey,
-} from '../../lib/blueprint/sphere/sphereEdit.js'
-import { stringifyBlueprint } from '../../lib/blueprint/sphere/sphereEncoder.js'
-import { hexToRgba } from '../../lib/blueprint/sphere/sphereUtils.js'
-import { useToast } from '../../composables/useToast'
-
-const toast = useToast()
+} from '../../sphere/edit.js'
+import { stringifyBlueprint } from '../../blueprint/sphere/sphereEncoder.js'
+import { hexToRgba } from '../../blueprint/sphere/sphereUtils.js'
+import { show } from '../../stores/toast'
 
 interface Rgba {
   r: number
@@ -169,7 +167,7 @@ function loadColorLists(): void {
     }
   } catch (error) {
     colorLists.value = null
-    toast.show(`读取壳层颜色失败：\n${(error as Error).message}`)
+    show(`读取壳层颜色失败：\n${(error as Error).message}`)
   }
 }
 
@@ -183,7 +181,7 @@ watch(
     form.face = true
     loadColorLists()
     if (colorLists.value && rows.value.length === 0) {
-      toast.show('当前蓝图没有可替换的颜色')
+      show('当前蓝图没有可替换的颜色')
     }
   },
 )
@@ -232,7 +230,7 @@ async function applyToPreview(): Promise<void> {
     parseBlueprint()
     closeColorReplaceModal()
   } catch (error) {
-    toast.show(`应用到预览失败：\n${(error as Error).message}`)
+    show(`应用到预览失败：\n${(error as Error).message}`)
   }
 }
 
@@ -243,9 +241,9 @@ async function copyToClipboard(): Promise<void> {
     const text = await generateText()
     await navigator.clipboard.writeText(text)
     closeColorReplaceModal()
-    toast.show('颜色替换后的蓝图已复制到剪贴板')
+    show('颜色替换后的蓝图已复制到剪贴板')
   } catch (error) {
-    toast.show(`生成或复制失败：\n${(error as Error).message}`)
+    show(`生成或复制失败：\n${(error as Error).message}`)
   } finally {
     busy.value = ''
   }
@@ -262,9 +260,9 @@ async function downloadToFile(): Promise<void> {
     )
     if (!saved) return
     closeColorReplaceModal()
-    toast.show(saved)
+    show(saved)
   } catch (error) {
-    toast.show(`生成或下载失败：\n${(error as Error).message}`)
+    show(`生成或下载失败：\n${(error as Error).message}`)
   } finally {
     busy.value = ''
   }

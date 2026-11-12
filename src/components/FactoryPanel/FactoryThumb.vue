@@ -90,8 +90,8 @@ function slotStyle(slot: IconSlot) {
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { itemName } from '../../lib/blueprint/factory/factoryItems.js'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
+import { itemName } from '../../blueprint/factory/factoryItems.js'
+import { itemIconUrl } from '../../factory/ui/itemIcons'
 import RichText from './RichText.vue'
 import blueprintTileUrl from '../../assets/factory/blueprint-tile.png'
 

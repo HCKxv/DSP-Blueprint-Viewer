@@ -1,6 +1,6 @@
 # 《戴森球计划》蓝图预览 & 发电量计算 & 彩绘生成
 
-纯前端的《戴森球计划》 `戴森球蓝图` 预览工具：可查看 3D 戴森球结构、壳层/云轨道明细与发电量估算。
+### 纯前端的《戴森球计划》`蓝图` 预览工具。
 
 ## 功能
 ### 戴森球预览
@@ -22,13 +22,9 @@
 
 > https://hckxv.github.io/dysonBlueprintParser/
 
+通过链接加载蓝图（`?txt=` 参数）的用法见 [URL 接口说明](/docs/URL接口说明.md)。
+
 ## 截图
-
-![image](/docs/截图5.png)
-
-![image](/docs/截图6.png)
-
-![image](/docs/截图7.png)
 
 ![image](/docs/截图1.png)
 
@@ -37,6 +33,10 @@
 ![image](/docs/截图3.png)
 
 ![image](/docs/截图4.png)
+
+![image](/docs/截图5.png)
+
+![image](/docs/截图6.png)
 
 
 ## 开发

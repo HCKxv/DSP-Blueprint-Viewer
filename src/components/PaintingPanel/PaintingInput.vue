@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { painting, loadImageFile, clearImage, clearPainting } from '../../stores/painting'
-import { useToast } from '../../composables/useToast'
-
-const toast = useToast()
+import { show } from '../../stores/toast'
 
 const dragging = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -22,10 +20,10 @@ function onFileChange(e: Event) {
 async function pickFile(file: File) {
   const res = await loadImageFile(file)
   if (!res.ok) {
-    toast.show(res.message)
+    show(res.message)
     return
   }
-  toast.show('已载入图片')
+  show('已载入图片')
 }
 
 // 图片变化后旧涂色数据不再对应当前图片，先清掉
@@ -51,7 +49,7 @@ function onDrop(e: DragEvent) {
   dragging.value = false
   const file = e.dataTransfer?.files?.[0]
   if (!file) {
-    toast.show('未检测到图片文件')
+    show('未检测到图片文件')
     return
   }
   pickFile(file)
@@ -60,7 +58,7 @@ function onDrop(e: DragEvent) {
 function onClear() {
   clearImage()
   clearPainting()
-  toast.show('已清除图片')
+  show('已清除图片')
 }
 </script>
 

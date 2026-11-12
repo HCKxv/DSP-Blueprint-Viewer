@@ -2,18 +2,15 @@
 /**
  * 批量编辑
  *
- * 规则注册表见 lib/factory/batchRules.ts，图标选择器注册表见 lib/factory/pickerTypes.ts。
+ * 规则和图标选择器的注册表都在 factory/batchRules.ts。
  */
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import IconPickerModal from './IconPickerModal.vue'
 import { applyBatchEdit, batchRules } from '../../stores/factory'
-import { BATCH_RULE_TYPES, createRule, hasReplace, hintOf, labelOf, ruleTypeOf } from '../../lib/factory/batchRules'
-import type { BatchRule, BatchRuleSelect } from '../../lib/factory/batchRules'
-import { pickerIconUrl, pickerName, pickerTypeOf } from '../../lib/factory/pickerTypes'
-import type { IconCategories, IconRef } from '../../lib/markup/itemIcons'
-import { useToast } from '../../composables/useToast'
-
-const toast = useToast()
+import { BATCH_RULE_TYPES, createRule, hasReplace, hintOf, labelOf, pickerIconUrl, pickerName, pickerTypeOf, ruleTypeOf } from '../../factory/batchRules'
+import type { BatchRule, BatchRuleSelect } from '../../factory/batchRules'
+import type { IconCategories, IconRef } from '../../factory/ui/itemIcons'
+import { show } from '../../stores/toast'
 
 /** 「添加规则」的下拉框 */
 const addOpen = ref(false)
@@ -134,12 +131,12 @@ function onPick(icon: IconRef) {
 function onConfirm() {
   const res = applyBatchEdit()
   if (!res.ok) {
-    toast.show(res.message)
+    show(res.message)
     return
   }
   // 浮窗可能正指着一条已经没了的规则，关掉
   closePicker()
-  toast.show('已应用规则')
+  show('已应用规则')
 }
 </script>
 

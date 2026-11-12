@@ -15,9 +15,7 @@ import {
   revertBlueprint,
   saveBlueprintFile,
 } from '../../stores/factory'
-import { useToast } from '../../composables/useToast'
-
-const toast = useToast()
+import { show } from '../../stores/toast'
 
 /** 四档的图标在模板里，这里只要 value 与 label */
 const viewItems = [
@@ -30,24 +28,24 @@ const viewItems = [
 function onClose() {
   if (!hasBlueprint.value) return
   closeBlueprint()
-  toast.show('已关闭蓝图')
+  show('已关闭蓝图')
 }
 
 async function onCopy() {
   const res = await copyBlueprint()
-  toast.show(res.message)
+  show(res.message)
 }
 
 /** 还原修改: 从原始蓝图字符串整份恢复 */
 async function onRevert() {
   const res = await revertBlueprint()
-  if (res.message) toast.show(res.message)
+  if (res.message) show(res.message)
 }
 
 /** 保存到文件 */
 async function onSave() {
   const res = await saveBlueprintFile()
-  if (res.message) toast.show(res.message) // 取消保存时 message 为空，不弹提示
+  if (res.message) show(res.message) // 取消保存时 message 为空，不弹提示
 }
 </script>
 

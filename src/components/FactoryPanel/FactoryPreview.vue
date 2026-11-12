@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
- * 工厂蓝图预览: 3D 场景由 lib/factory/FactoryPreview.js 负责，
+ * 工厂蓝图预览: 3D 场景由 factory/preview/FactoryPreview.js 负责，
  * 这里只管挂载 / 卸载画布与界面开关。
  */
 import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { FactoryPreview } from '../../lib/factory/FactoryPreview.js'
+import { FactoryPreview } from '../../factory/preview/FactoryPreview.js'
 import { attachPreview } from '../../stores/factory'
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
@@ -16,7 +16,7 @@ let preview: FactoryPreview | null = null
 const showGrid = ref(true)
 
 /**
- * 状态行里的一排显示层开关（key 就是 lib/factory/FactoryPreview.js 的层名）
+ * 状态行里的一排显示层开关（key 就是 factory/preview/FactoryPreview.js 的层名）
  */
 const layerState = reactive({ buildings: true, belts: true, inserters: true, icons: true })
 const layerKeys = ['buildings', 'belts', 'inserters', 'icons'] as const
@@ -85,7 +85,7 @@ watch(showGrid, (visible) => preview?.setGridVisible(visible))
 // 目标半球（下拉框）→ 立刻重摆
 watch(targetNorth, () => preview?.setTargetLatitude(currentTarget(), targetNorth.value === 'N'))
 
-/** 复位视角: 有蓝图回到蓝图中心，没有则回到默认视角，见 lib/factory/FactoryPreview.js */
+/** 复位视角: 有蓝图回到蓝图中心，没有则回到默认视角，见 factory/preview/FactoryPreview.js */
 function onResetView() {
   preview?.resetView()
 }

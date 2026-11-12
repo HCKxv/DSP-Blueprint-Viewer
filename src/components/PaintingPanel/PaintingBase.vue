@@ -8,9 +8,7 @@ import {
   importBaseBlueprint,
   clearImportedBase,
 } from '../../stores/painting'
-import { useToast } from '../../composables/useToast'
-
-const toast = useToast()
+import { show } from '../../stores/toast'
 
 /** 输入框上方的提示（单行省略显示，完整内容靠 title） */
 const IMPORT_HINT = '注意甄别未知来源的蓝图；建议使用全包裹的壳面，否则会影响最终效果。'
@@ -48,7 +46,7 @@ async function applyImport() {
       importError.value = res.message
       return
     }
-    toast.show(res.message)
+    show(res.message)
     importText.value = ''
     importOpen.value = false
   } finally {
@@ -61,7 +59,7 @@ function onClearImport() {
   importText.value = ''
   importOpen.value = false
   importError.value = ''
-  toast.show('已清除导入的基底')
+  show('已清除导入的基底')
 }
 </script>
 

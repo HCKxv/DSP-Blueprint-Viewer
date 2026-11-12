@@ -2,14 +2,13 @@
 import { computed, onBeforeUnmount, reactive, ref, toRaw, watch } from 'vue'
 import BaseModal from '../BaseModal.vue'
 import { store, saveBlueprintText } from '../../stores/preview'
-import { copyShell } from '../../lib/blueprint/sphere/sphereEdit.js'
-import { stringifyBlueprint } from '../../lib/blueprint/sphere/sphereEncoder.js'
-import { computePower, fmtKW } from '../../lib/power/power.js'
-import { computePointsAsync, cancelPowerComputes } from '../../lib/power/powerAsync.js'
-import { useToast } from '../../composables/useToast'
+import { copyShell } from '../../sphere/edit.js'
+import { stringifyBlueprint } from '../../blueprint/sphere/sphereEncoder.js'
+import { computePower } from '../../sphere/power/power.js'
+import { fmtKW } from '../../utils/energy.js'
+import { computePointsAsync, cancelPowerComputes } from '../../sphere/power/powerAsync.js'
+import { show } from '../../stores/toast'
 import powerIcon from '../../assets/icons/signal/503.png'
-
-const toast = useToast()
 
 /** 正在生成的动作：'' 空闲 / 'copy' 复制到剪贴板 / 'save' 下载到文件 */
 const busy = ref<'' | 'copy' | 'save'>('')
@@ -64,7 +63,7 @@ const invalidText = computed(() => {
 async function generateMultiShellText(): Promise<string | null> {
   const parsed = store.parsed
   if (!parsed || parsed?.typeId !== 1) {
-    toast.show('没有已解析的蓝图或不是单层壳蓝图')
+    show('没有已解析的蓝图或不是单层壳蓝图')
     return null
   }
   const multi = await copyShell(toRaw(parsed), { ...form })
@@ -80,9 +79,9 @@ async function copyToClipboard() {
     if (!text) return
     await navigator.clipboard.writeText(text)
     store.showCopyShellModal = false
-    toast.show(`已生成 ${form.count} 层戴森壳，并复制到剪贴板`)
+    show(`已生成 ${form.count} 层戴森壳，并复制到剪贴板`)
   } catch (error) {
-    toast.show(`生成或复制失败：\n${(error as Error).message}`)
+    show(`生成或复制失败：\n${(error as Error).message}`)
   } finally {
     busy.value = ''
   }
@@ -98,9 +97,9 @@ async function downloadToFile() {
     const saved = await saveBlueprintText(text, `${form.count}层戴森${form.autoOrbitCloud?'球':'壳'}`)
     if (!saved) return   // 取消保存：不关弹窗也不提示
     store.showCopyShellModal = false
-    toast.show(`已生成 ${form.count} 层戴森壳；${saved}`)
+    show(`已生成 ${form.count} 层戴森壳；${saved}`)
   } catch (error) {
-    toast.show(`生成或保存失败：\n${(error as Error).message}`)
+    show(`生成或保存失败：\n${(error as Error).message}`)
   } finally {
     busy.value = ''
   }

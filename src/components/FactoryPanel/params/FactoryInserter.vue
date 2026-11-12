@@ -3,9 +3,9 @@
  * 分拣器的参数（2011~2014）
  */
 import { ref } from 'vue'
-import { itemIconUrl } from '../../../lib/markup/itemIcons'
-import type { IconCategories, IconRef } from '../../../lib/markup/itemIcons'
-import { itemName } from '../../../lib/blueprint/factory/factoryItems.js'
+import { itemIconUrl } from '../../../factory/ui/itemIcons'
+import type { IconCategories, IconRef } from '../../../factory/ui/itemIcons'
+import { itemName } from '../../../blueprint/factory/factoryItems.js'
 import IconPickerModal from '../IconPickerModal.vue'
 
 defineProps<{

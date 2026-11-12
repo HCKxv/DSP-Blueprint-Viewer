@@ -18,12 +18,10 @@ import {
   foundationStats,
   isFoundationMode,
 } from '../stores/painting'
-import { useToast } from '../composables/useToast'
+import { show } from '../stores/toast'
 import { saveAsText } from '../utils/download'
 import { handleBlueprintText } from '../stores/preview'
 import { activeTool } from '../stores/tool'
-
-const toast = useToast()
 
 /** 当前生成模式是否已经有可导出的数据 */
 const canExport = computed(() => (
@@ -43,7 +41,7 @@ async function onGenerate() {
   try {
     await generatePainting()
   } catch (error) {
-    toast.show(`生成彩绘失败：\n${(error as Error).message}`)
+    show(`生成彩绘失败：\n${(error as Error).message}`)
   }
 }
 
@@ -52,9 +50,9 @@ async function onCopyBlueprint() {
   try {
     const text = await exportPaintingBlueprint()
     await navigator.clipboard.writeText(text)
-    toast.show('已复制蓝图到剪贴板')
+    show('已复制蓝图到剪贴板')
   } catch (error) {
-    toast.show(`复制失败：\n${(error as Error).message}`)
+    show(`复制失败：\n${(error as Error).message}`)
   }
 }
 
@@ -69,9 +67,9 @@ async function onDownloadBlueprint() {
     })
     if (saved.error) throw new Error(saved.error)
     if (saved.canceled) return // 取消保存不算失败
-    toast.show(saved.handle ? `已保存到 ${saved.handle.name}` : '这个浏览器不能直接写文件，已改为下载')
+    show(saved.handle ? `已保存到 ${saved.handle.name}` : '这个浏览器不能直接写文件，已改为下载')
   } catch (error) {
-    toast.show(`下载失败：\n${(error as Error).message}`)
+    show(`下载失败：\n${(error as Error).message}`)
   }
 }
 
@@ -82,7 +80,7 @@ async function onViewInPreview() {
     activeTool.value = 'preview'
     handleBlueprintText(text)
   } catch (error) {
-    toast.show(`无法在预览中打开：\n${(error as Error).message}`)
+    show(`无法在预览中打开：\n${(error as Error).message}`)
   }
 }
 
@@ -296,7 +294,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   flex-shrink: 0;
 }
 

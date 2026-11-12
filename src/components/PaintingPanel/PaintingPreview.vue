@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { PaintingPreview } from '../../lib/painting/PaintingPreview.js'
+import { PaintingPreview } from '../../painting/PaintingPreview.js'
 import {
   painting,
   currentMode,
@@ -15,10 +15,9 @@ import {
   quantizedCropRect,
 } from '../../stores/painting'
 import { downloadCanvas } from '../../utils/download'
-import { drawQuantizedImage } from '../../lib/painting/quantize.js'
-import { useToast } from '../../composables/useToast'
+import { drawQuantizedImage } from '../../painting/quantize.js'
+import { show } from '../../stores/toast'
 
-const toast = useToast()
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 
 // 3D 预览
@@ -113,7 +112,7 @@ function refreshQuantized() {
   }).catch((error) => {
     if (token !== quantizeToken) return
     flatMapUrl.value = ''
-    toast.show(`量化图生成失败：${(error as Error).message}`)
+    show(`量化图生成失败：${(error as Error).message}`)
   })
 }
 
@@ -149,13 +148,13 @@ watch(() => painting.showGridLines, () => nextTick(refreshGrid))
 async function onExportFlatMap() {
   const canvas = flatMapCanvas ?? preview?.exportFlatMap()
   if (!canvas) {
-    toast.show('请先生成彩绘')
+    show('请先生成彩绘')
     return
   }
   try {
     await downloadCanvas(canvas, '平面展开')
   } catch (error) {
-    toast.show(`导出失败：${(error as Error).message}`)
+    show(`导出失败：${(error as Error).message}`)
   }
 }
 

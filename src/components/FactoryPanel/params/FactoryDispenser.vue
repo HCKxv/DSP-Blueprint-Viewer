@@ -3,9 +3,9 @@
  * 物流配送器（2107）的参数
  */
 import { computed, ref } from 'vue'
-import { itemIconUrl } from '../../../lib/markup/itemIcons'
-import type { IconCategories, IconRef } from '../../../lib/markup/itemIcons'
-import { itemName } from '../../../lib/blueprint/factory/factoryItems.js'
+import { itemIconUrl } from '../../../factory/ui/itemIcons'
+import type { IconCategories, IconRef } from '../../../factory/ui/itemIcons'
+import { itemName } from '../../../blueprint/factory/factoryItems.js'
 import IconPickerModal from '../IconPickerModal.vue'
 
 // 挡位表: 0 由勾选项表示，所以这里只列 0 以外的挡位

@@ -7,9 +7,7 @@ import {
   loadBlueprintFile,
   loadBlueprintText,
 } from '../../stores/factory'
-import { useToast } from '../../composables/useToast'
-
-const toast = useToast()
+import { show } from '../../stores/toast'
 
 const text = ref('')
 const error = ref('')
@@ -65,7 +63,7 @@ async function importWith(load: () => Promise<{ ok: boolean, message: string }>)
     error.value = res.message
     return
   }
-  toast.show(res.message)
+  show(res.message)
   closeBlueprintModal()
 }
 

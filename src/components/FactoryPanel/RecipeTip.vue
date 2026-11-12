@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
-import { RECIPE_DATA } from '../../lib/blueprint/factory/factoryRecipes.js'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
+import { RECIPE_DATA } from '../../factory/data/factoryRecipes.js'
+import { itemIconUrl } from '../../factory/ui/itemIcons'
 
 /**
  * 配方提示: 一排图标「产物 ← 原料」（产物在左），个数大于 1 的带数量角标

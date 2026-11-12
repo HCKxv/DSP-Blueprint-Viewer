@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import StatBox from './StatBox.vue'
-import type { StatNode } from '../../lib/preview/statsTree'
+import type { StatNode } from '../../sphere/statsTree'
 
 const props = defineProps<{ node: StatNode }>()
 const emit = defineEmits<{
@@ -23,7 +23,7 @@ function forwardContextMenu(node: StatNode, event: MouseEvent) {
 
 <template>
   <div class="stat-section" @contextmenu="onContextMenu">
-    <div class="stat-section-header" :class="{ collapsed }" @click="collapsed = !collapsed">
+    <div class="stat-section-header stat-box" :class="{ collapsed }" @click="collapsed = !collapsed">
       <span class="arrow">▼</span>
       <span class="stat-section-title">{{ node.title }} ({{ node.count }})</span>
       <button
@@ -55,11 +55,6 @@ function forwardContextMenu(node: StatNode, event: MouseEvent) {
 }
 
 .stat-section-header {
-  padding: 6px 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
   font-weight: bold;
   cursor: pointer;
   user-select: none;

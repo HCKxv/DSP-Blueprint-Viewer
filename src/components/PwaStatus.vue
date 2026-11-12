@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { usePwaStatus, type PwaPhase } from '../composables/usePwaStatus'
-
-const { phase, canReload, reload } = usePwaStatus()
+import { canReload, phase, reload, type PwaPhase } from '../stores/pwaStatus'
 
 /** 状态文案 */
 const LABELS: Record<PwaPhase, string> = {

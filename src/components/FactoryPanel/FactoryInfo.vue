@@ -10,17 +10,15 @@ import {
   discardFoundation,
   LIMITS,
 } from '../../stores/factory'
-import { itemIconUrl } from '../../lib/markup/itemIcons'
-import type { IconRef } from '../../lib/markup/itemIcons'
-import { ICON_CATEGORIES } from '../../lib/markup/iconCatalog'
-import { useToast } from '../../composables/useToast'
+import { itemIconUrl } from '../../factory/ui/itemIcons'
+import type { IconRef } from '../../factory/ui/itemIcons'
+import { ICON_CATEGORIES } from '../../factory/ui/iconCatalog'
+import { show } from '../../stores/toast'
 import decalIcon from '../../assets/factory/decal.png'
 import undecalIcon from '../../assets/factory/undecal.png'
 import RichTextEditor, { type RichTextApi } from './RichTextEditor.vue'
 import FactoryThumb, { LAYOUT_OPTIONS, NO_LAYOUT } from './FactoryThumb.vue'
 import IconPickerModal from './IconPickerModal.vue'
-
-const toast = useToast()
 
 /** 图标选择器状态: slot >= 0 给缩略图图标位选，editor 非空往那个字段的光标处插，anchor 是浮层贴的元素 */
 const picker = reactive({
@@ -80,7 +78,7 @@ function onPickIcon(icon: IconRef) {
     factory.header.icons[picker.slot] = icon.id
   } else if (picker.editor && markup) {
     // 到字数上限时插入会被吞掉，给个提示（不然点了图标毫无反应）
-    if (!picker.editor.insertText(markup)) toast.show('这个字段已经到字数上限了')
+    if (!picker.editor.insertText(markup)) show('这个字段已经到字数上限了')
   }
   // 关不关由选择器决定（钉住时可以连着插）；这里只把选中结果交出去
 }
@@ -111,13 +109,13 @@ const reformIcons = {
 /** 右键设施图标 = 剔除这一类 */
 function onDiscardFacility(itemId: number) {
   const res = discardFacility(itemId)
-  if (res.message) toast.show(res.message)
+  if (res.message) show(res.message)
 }
 
 /** 右键地基图标 = 剔除这一类地基（带装饰 / 无装饰） */
 function onDiscardFoundation(kind: 'decal' | 'undecal') {
   const res = discardFoundation(kind)
-  if (res.message) toast.show(res.message)
+  if (res.message) show(res.message)
 }
 </script>
 
@@ -331,7 +329,7 @@ function onDiscardFoundation(kind: 'decal' | 'undecal') {
   display: flex;
   /* 拉伸: 缩略图栏拿到整行高度，缩略图的上下自动边距才有空间分配 */
   align-items: stretch;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 

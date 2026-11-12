@@ -1,0 +1,829 @@
+/**
+ * DysonSpherePreview — 戴森球蓝图 3D 预览模块
+ *
+ *
+ *  预览实例:  new DysonSpherePreview()
+ *
+ *   1. init(canvas)                  初始化场景（相机、渲染器、光照、控制器、刻度网格）
+ *   2. render(data)                  根据已解析的蓝图数据重建 3D 场景
+ *   3. setLayerVisible(type, id, v)  壳层 / 云轨道显示控制  (type: 'shell' | 'cloud')
+ *   4. setGridVisible(visible)       刻度显示开关
+ *   5. setRotationEnabled(enabled)   旋转开关
+ *   6. setRotationSpeed(speed)       转速修改（建议 0.01 慢 / 0.05 中 / 0.20 快）
+ *   7. setSunColor(luminosity)       根据光度系数连续更新恒星色/背面色/自发光
+ *   8. setBackgroundMode(mode)       背景切换 ('plain'=纯色 | 'star'=星空)
+ *   9. setModel(model)               模型精度 ('detailed' | 'simplified')
+ *  10. exportImage(scale)            导出当前预览画面（返回 PNG 画布）
+ *
+ *   辅助:
+ *     clearScene()                   清空场景中的所有 3D 对象
+ *     resize()                       手动触发渲染器大小调整
+ *     dispose()                      销毁实例，释放资源
+ *
+ *   render(data) 的 data 结构（即 parseBlueprintString 的返回值）:
+ *    {
+ *      header: {...},
+ *      typeId: 1|2|3|4,
+ *      singleShell: { nodes, frames, faces, fillGrid? },  // typeId=1
+ *      dysonShell: {
+ *        orbitList: [{ id, radius, x, y, z, w }],
+ *        shells: { [id]: { nodes, frames, faces, fillGrid? } },
+ *        visibility?: { editor, inGame }
+ *      },
+ *      dysonCloud: {
+ *        orbits: [{ id, radius, x, y, z, w }],
+ *        colors?: { [id]: color },
+ *        visibility?: { editor, inGame }
+ *      },
+ *      validFlag?: boolean
+ *    }
+ *
+ *   其中
+ *   color: { r,g,b,a } | { h,s,v,a }
+ *   节点 node:  { id, coordinate: { x, y, z }, color, style? }
+ *   框架 frame: { id, relation: [nodeId, nodeId], color, type, style? }     type: 0=测地线  1=经纬线
+ *   壳面 face:  { id, relation: [nodeId, nodeId, ...], color, pattern? }    有序节点 ID 列表构成多边形
+ */
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+import { buildCloudOrbit, INDICES_PER_SAIL } from './buildCloud.js';
+import { buildShellLayer, buildShellSimpleLayer, buildNodeGeometries, cancelLayerWorker } from './buildShell.js';
+import { ensureShellPatternTextures, onShellPatternReady, applyLayerPainting } from './shellPattern.js';
+import { getStarColors } from './starColors.js';
+import { createStarfield, disposeStarfield, STARFIELD_BG_COLOR } from '../../scene/starfield.js';
+
+/** 本工具的星空种子 */
+const STARFIELD_SEED = 20260214;
+
+/** linear RGB 数组 → THREE.Color（允许 >1，交给 bloom） */
+function toLinearColor(rgb) {
+  return new THREE.Color().setRGB(rgb[0], rgb[1], rgb[2]);
+}
+
+// 泛光参数
+const BLOOM_STRENGTH = 0.4;
+const BLOOM_RADIUS = 0.3;
+const BLOOM_THRESHOLD = 0.8;
+const MAX_PIXEL_RATIO = 2;
+
+
+/** 让出主线程一帧（顺带让浏览器完成绘制），用于把大场景的构建切成多帧 */
+const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+
+
+class DysonSpherePreview {
+  constructor() {
+    this._scene = null;
+    this._camera = null;
+    this._renderer = null;
+    this._controls = null;
+    this._canvas = null;
+
+    this._rootGroup = null;
+    this._gridGroup = null;
+    this._gridLabelTexture = null;
+    this._originSphere = null;
+    this._starGlowInner = null;
+    this._starfieldGroup = null;
+    this._backgroundMode = 'plain';
+    this._plainBgColor = new THREE.Color(0x3C5765);
+    this._starBgColor = new THREE.Color(STARFIELD_BG_COLOR);
+
+    this._shellGroups = [];
+    this._cloudGroups = [];
+    this._shellRotationEnabled = true;
+    this._shellSpeed = 0.05;
+    this._currentScale = 1;
+    this._clock = new THREE.Clock();
+    this._animFrameId = null;
+    this._needsRender = true;   // 脏标记: 旋转/交互/场景变化时置位，静止时跳过渲染（省电）
+    this._resizeObserver = null;
+    this._composer = null;
+    this._bloomPass = null;
+    this._renderToken = 0;
+    this._loadingEl = null;
+
+    this._visObjects = new Map();
+
+    this._nodeGeoms = null;
+    this._sharedBackMaterial = null;
+    this._frameBackColor = null;
+    this._starEmissionColor = null;
+    this._model = 'detailed';
+    this._sailDensity = 8;
+
+    // 绑定的事件回调引用，用于 dispose
+    this._onBlur = null;
+  }
+
+  // ─── 1. 初始化场景 ─────────────────────────────────────────
+
+  /**
+   * @param {HTMLCanvasElement} canvas
+   */
+  init(canvas) {
+    if (this._renderer) this.dispose();
+
+    if (!this._nodeGeoms) this._nodeGeoms = buildNodeGeometries();
+    const initialStar = getStarColors(1.0);
+    const initialStarColor = toLinearColor(initialStar.star.glow);
+    this._frameBackColor = new THREE.Color(initialStar.back.frame);
+    if (!this._sharedBackMaterial) this._sharedBackMaterial = new THREE.MeshBasicMaterial({ color: initialStar.back.shell, side: THREE.BackSide, depthWrite: true });
+    if (!this._starEmissionColor) this._starEmissionColor = toLinearColor(initialStar.emission);
+
+    // 图案贴图异步加载: 提前开始，到位后强制重画一帧
+    ensureShellPatternTextures();
+    onShellPatternReady(() => { this._needsRender = true; });
+
+    this._canvas = canvas;
+
+    this._scene = new THREE.Scene();
+    this._scene.background = this._plainBgColor.clone();
+
+    this._camera = new THREE.PerspectiveCamera(40, 1, 0.1, 1000);
+    this._camera.position.set(0, 1.8, -3.2);
+
+    this._renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+    this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
+    this._renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+
+    // 后处理链
+    this._applyPipeline();
+
+    this._controls = new OrbitControls(this._camera, canvas);
+    this._controls.enableDamping = true;
+    this._controls.enablePan = false;
+    this._controls.minDistance = 0.8;
+    this._controls.maxDistance = 20;
+    this._controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: null };
+    this._controls.touches = { ONE: null, TWO: THREE.TOUCH.DOLLY_ROTATE };
+    canvas.style.touchAction = 'pan-y';
+    // 相机交互（含阻尼惯性）时置脏
+    this._controls.addEventListener('change', () => { this._needsRender = true; });
+
+    // 指针丢失兜底
+    canvas.addEventListener('lostpointercapture', (e) => {
+      canvas.dispatchEvent(new PointerEvent('pointerup', { pointerId: e.pointerId }));
+    });
+    this._onBlur = () => {
+      for (let i = 0; i < 10; i++) canvas.dispatchEvent(new PointerEvent('pointerup', { pointerId: i }));
+    };
+    window.addEventListener('blur', this._onBlur);
+
+    this._resizeObserver = new ResizeObserver(() => {
+      this.resize();
+      this._needsRender = true;
+    });
+    this._resizeObserver.observe(canvas.parentElement || canvas);
+
+    // 光照
+    this._scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+
+    // 根组
+    this._rootGroup = new THREE.Group();
+    this._scene.add(this._rootGroup);
+
+    // 刻度网格
+    this._gridGroup = new THREE.Group();
+    this._gridGroup.name = 'longitudeGrid';
+    this._scene.add(this._gridGroup);
+
+    this._createLongitudeGrid(1.2);
+
+    // 恒星
+    this._originSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.05, 48, 24),
+      new THREE.MeshBasicMaterial({ color: initialStarColor })
+    );
+    this._scene.add(this._originSphere);
+
+    // 光晕
+    this._starGlowInner = new THREE.Mesh(
+      new THREE.SphereGeometry(0.068, 32, 16),
+      new THREE.MeshBasicMaterial({ color: initialStarColor, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    this._scene.add(this._starGlowInner);
+
+    // 星空背景（默认隐藏，可用 setBackgroundMode('star') 打开）
+    this._starfieldGroup = createStarfield(this._renderer.getPixelRatio(), STARFIELD_SEED);
+    this._starfieldGroup.visible = this._backgroundMode === 'star';
+    this._scene.add(this._starfieldGroup);
+
+    this._startLoop();
+  }
+
+  // ─── 2. 渲染蓝图数据 ───────────────────────────────────────
+
+  /**
+   * 重建场景。逐层构建，每层结束后让出主线程一帧，避免长时间卡住界面；
+   * 期间若又调用了一次 render，旧的那次会在下一层前自动中止。
+   *
+   * @param {object} data — 解析后的蓝图数据（parseBlueprintString 的返回值）
+   *
+   * data.typeId         1=单层壳  2=多层壳  3=戴森云  4=壳+云
+   * data.singleShell    { nodes, frames, faces, fillGrid? }
+   * data.dysonShell     { orbitList, shells, visibility? }
+   * data.dysonCloud     { orbits, colors?, visibility? }
+   * @returns {Promise<void>}
+   */
+  async render(data) {
+    const token = (this._renderToken = (this._renderToken || 0) + 1);
+    // 中止上一次构建里在飞的层: Worker 单线程，不终止的话新构建的 postMessage 只能排队
+    cancelLayerWorker();
+    // 先清空旧场景，再建到暂存 group，成功后一次性换上
+    this.clearScene();
+    const staging = new THREE.Group();
+    const cloudBucket = new THREE.Group();
+    cloudBucket.name = 'cloudBucket';
+    staging.add(cloudBucket);
+    const stagedShells = [];
+    const stagedCloudGroups = [];
+    const stagedVis = new Map();
+    let failed = false;
+    try {
+
+      const isSingleShell = data.typeId === 1;
+      const cloud = data.dysonCloud;
+      const shell = isSingleShell
+        ? { shells: [data.singleShell], orbitList: [{ id: 0, radius: 10000.0, x: 0, y: 0, z: 0, w: 1 }] }
+        : (data.dysonShell ?? null);
+
+      // 计算缩放
+      const shellRadii = shell?.orbitList?.filter(Boolean).map(o => o.radius) ?? [];
+      const cloudRadii = cloud?.orbits?.filter(Boolean).map(o => o.radius) ?? [];
+      const allRadii = shellRadii.concat(cloudRadii);
+      let maxRadius;
+      if (allRadii.length > 0) {
+        maxRadius = Math.max(1, ...allRadii);
+      } else if (shell?.shells?.[0]?.nodes) {
+        maxRadius = Math.max(1, ...shell.shells[0].nodes.slice(1).filter(Boolean).map(n => Math.hypot(n.coordinate.x, n.coordinate.y, n.coordinate.z)));
+      } else {
+        maxRadius = 1;
+      }
+      this._currentScale = 1 / maxRadius;
+
+      const shellCount = shell?.orbitList
+        ? shell.orbitList.filter((o) => o && shell.shells?.[o.id]).length : 0;
+
+      // ── 云轨道 ──
+      if (cloud?.orbits) {
+        this._setLoading(true, '正在构建戴森云…');
+        cloud.orbits.forEach((orb, idx) => {
+          if (!orb) return;
+          const gv = cloud.visibility ? cloud.visibility.inGame[orb.id] : true;
+          const color = cloud.colors?.[orb.id] ?? cloud.colors?.[orb.id - 1] ?? cloud.colors?.[idx];
+          const cloudObj = buildCloudOrbit(
+            orb, color, this._currentScale, this._model === 'detailed', this._sailDensity / 16,
+          );
+          const obj = cloudObj.group;
+          obj.visible = gv;
+          obj.userData.cloudOrbitId = orb.id;
+          stagedVis.set('cloud_' + orb.id, obj);
+          stagedCloudGroups.push({
+            group: obj,
+            pole: cloudObj.pole,
+            radius: orb.radius,
+            rotates: this._model === 'detailed',
+          });
+          cloudBucket.add(obj);
+        });
+        if (token !== this._renderToken) {
+          for (const sg of stagedShells) sg.paintCube?.dispose();
+          this._disposeTree(staging);
+          return;
+        }
+      }
+
+      // ── 壳层 ──
+      const total = shellCount;
+      let done = 0;
+      if (shell?.orbitList) {
+        for (let i = 0; i < shell.orbitList.length; i++) {
+          const orbit = shell.orbitList[i];
+          if (!orbit) continue;
+          const shData = shell.shells?.[orbit.id] ?? null;
+          if (!shData) continue;
+          const gv = shell.visibility ? shell.visibility.inGame[orbit.id] : true;
+          done += 1;
+          this._setLoading(true, `正在构建壳层 ${done}/${total}`);
+          const layer = this._model === 'simplified'
+            ? await buildShellSimpleLayer(shData, orbit, this._currentScale, this._sharedBackMaterial)
+            : await buildShellLayer(shData, orbit, this._currentScale, this._nodeGeoms, this._sharedBackMaterial, this._starEmissionColor, this._frameBackColor);
+          layer.group.visible = gv;
+          // 涂色
+          const paintCube = applyLayerPainting(this._renderer, layer, 1536);
+          stagedShells.push({ group: layer.group, pole: layer.pole, radius: orbit.radius, paintCube });
+          stagedVis.set('shell_' + orbit.id, layer.group);
+          staging.add(layer.group);
+
+          if (token !== this._renderToken) {   // 已被新的 render 取代: 丢弃半成品
+            for (const sg of stagedShells) sg.paintCube?.dispose();
+            this._disposeTree(staging);
+            return;
+          }
+        }
+      }
+
+      // 全部建好，一次性换上（释放旧场景 → 接管新场景）
+      if (token !== this._renderToken) {
+        for (const sg of stagedShells) sg.paintCube?.dispose();
+        this._disposeTree(staging);
+        return;
+      }
+      this._shellGroups = stagedShells;
+      this._cloudGroups = stagedCloudGroups;
+      this._visObjects = stagedVis;
+      this._rootGroup.add(staging);
+
+      this._camera.position.set(0, 1.8, -3.2);
+      this._controls.target.set(0, 0, 0);
+      this._controls.update();
+      this._needsRender = true; // 新蓝图渲染完成后置脏
+    } catch (err) {
+      // 构建失败: 丢弃已建的暂存内容，把原因留在提示层上（下次 render 会覆盖）
+      failed = true;
+      for (const sg of stagedShells) sg.paintCube?.dispose();
+      this._disposeTree(staging);
+      console.error('[preview] 场景构建失败:', err);
+      if (token === this._renderToken) {
+        const msg = err && err.message ? err.message : String(err);
+        this._setLoading(true, '构建失败：' + msg, true);
+      }
+    } finally {
+      // 成功才收起提示；被取代的那次不能动新任务的提示层
+      if (token === this._renderToken && !failed) this._setLoading(false);
+    }
+  }
+
+  // ─── 3. 壳层与云轨道显示控制 ───────────────────────────────
+
+  /**
+   * @param {'shell'|'cloud'} type
+   * @param {number} id  轨道 ID
+   * @param {boolean} visible
+   */
+  setLayerVisible(type, id, visible) {
+    const key = type + '_' + id;
+    const obj = this._visObjects.get(key);
+    if (obj) obj.visible = visible;
+    this._needsRender = true;
+  }
+
+  /** @param {'detailed'|'simplified'} model */
+  setModel(model) {
+    const next = model === 'simplified' ? 'simplified' : 'detailed';
+    if (next === this._model) return;
+    this._model = next;
+    this._applyPipeline();
+  }
+
+  /** @param {number} level 太阳帆密度档位 1..16 */
+  setSailDensity(level) {
+    const next = Math.max(1, Math.min(16, Math.round(level)));
+    if (next === this._sailDensity) return;
+    this._sailDensity = next;
+    const ratio = next / 16;
+    for (const sg of this._cloudGroups) {
+      const mesh = sg.group.getObjectByName('cloudSails');
+      if (!mesh) continue;
+      const max = mesh.userData.sailMaxCount;
+      const count = Math.max(1, Math.round(max * ratio));
+      mesh.geometry.setDrawRange(0, count * INDICES_PER_SAIL);
+    }
+    this._needsRender = true;
+  }
+
+  // ─── 4. 刻度显示开关 ───────────────────────────────────────
+
+  /**
+   * @param {boolean} visible
+   */
+  setGridVisible(visible) {
+    if (this._gridGroup) this._gridGroup.visible = visible;
+    this._needsRender = true;
+  }
+
+  // ─── 5. 旋转开关 ──────────────────────────────────────────
+
+  /**
+   * @param {boolean} enabled
+   */
+  setRotationEnabled(enabled) {
+    this._shellRotationEnabled = enabled;
+    this._needsRender = true;
+  }
+
+  // ─── 6. 转速修改 ──────────────────────────────────────────
+
+  /**
+   * @param {number} speed  建议 0.01（慢）/ 0.05（中）/ 0.20（快）
+   */
+  setRotationSpeed(speed) {
+    this._shellSpeed = speed;
+  }
+
+  // ─── 7. 更新恒星颜色 ───────────────────────────────────────
+
+  /**
+   * 根据光度系数连续更新恒星色、背面/光照色、框架自发光色
+   * @param {number} luminosity  0.1 ~ 10
+   */
+  setSunColor(luminosity) {
+    const lum = Math.max(0.01, Math.min(10, luminosity));
+    const { star, back, emission } = getStarColors(lum);
+    const starColor = toLinearColor(star.glow);
+
+    if (this._originSphere) this._originSphere.material.color.copy(starColor);
+    if (this._starGlowInner) this._starGlowInner.material.color.copy(starColor);
+    if (!this._starEmissionColor) this._starEmissionColor = new THREE.Color();
+    this._starEmissionColor.setRGB(emission[0], emission[1], emission[2]);
+    // 壳面背面用 _SunColor × 0.73；节点/框架内侧用 back.frame
+    this._frameBackColor.setHex(back.frame);
+    this._sharedBackMaterial.color.setHex(back.shell);
+    // 壳面背面的克隆材质（带图案补丁）也要跟着换色
+    for (const sg of this._shellGroups) {
+      sg.group.traverse((obj) => {
+        if (obj.userData && obj.userData.shellSharedBack === this._sharedBackMaterial) {
+          obj.material.color.setHex(back.shell);
+        }
+      });
+    }
+    this._needsRender = true;
+  }
+
+  // ─── 7.5 背景切换 ────────────────────────────────────────
+
+  /**
+   * 切换预览背景
+   * @param {'plain'|'star'} mode  'plain'=纯色背景  'star'=星空背景
+   */
+  setBackgroundMode(mode) {
+    this._backgroundMode = mode === 'star' ? 'star' : 'plain';
+    if (this._scene) {
+      this._scene.background = this._backgroundMode === 'star'
+        ? this._starBgColor.clone()
+        : this._plainBgColor.clone();
+    }
+    if (this._starfieldGroup) this._starfieldGroup.visible = this._backgroundMode === 'star';
+    this._needsRender = true;
+  }
+
+  // ─── 辅助 ──────────────────────────────────────────────────
+
+  /** 返回当前场景中的壳层 / 云轨道可见性映射 */
+  getLayerVisibility() {
+    const result = {};
+    for (const [key, obj] of this._visObjects) result[key] = obj.visible;
+    return result;
+  }
+
+  /** 返回当前缩放系数 */
+  getScale() { return this._currentScale; }
+
+  /** 清空场景中的所有 3D 对象（壳层、云轨道、节点等） */
+  clearScene() {
+    // 释放各壳层的涂色立方体贴图
+    for (const sg of this._shellGroups) {
+      if (sg.paintCube) sg.paintCube.dispose();
+    }
+    this._shellGroups.length = 0;
+    this._cloudGroups.length = 0;
+    this._visObjects.clear();
+    if (!this._rootGroup) return;
+    this._disposeTree(this._rootGroup);
+    this._rootGroup.remove(...this._rootGroup.children);
+    this._needsRender = true;
+  }
+
+  /** 释放一棵子树的几何体与材质（共享的节点几何与背板材质不释放） */
+  _disposeTree(root) {
+    root.traverse((obj) => {
+      if (obj.isMesh || obj.isPoints || obj.isLine) {
+        const shared = this._nodeGeoms
+          && (obj.geometry === this._nodeGeoms.body || obj.geometry === this._nodeGeoms.cap);
+        if (obj.geometry && obj.geometry !== this._sharedBackMaterial && !shared) obj.geometry.dispose();
+        if (obj.material && obj.material !== this._sharedBackMaterial) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          for (const m of mats) m.dispose();
+        }
+      }
+    });
+  }
+
+  /**
+   * 构建期间的进度/错误提示（覆盖在 canvas 上，用完即移除）
+   * @param {boolean} visible
+   * @param {string} [text]
+   * @param {boolean} [isError] 以错误样式显示（偏红），用于构建失败
+   */
+  _setLoading(visible, text, isError) {
+    if (!visible) {
+      if (this._loadingEl) {
+        this._loadingEl.remove();
+        this._loadingEl = null;
+      }
+      return;
+    }
+    if (!this._loadingEl) {
+      const el = document.createElement('div');
+      el.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;'
+        + 'justify-content:center;background:rgba(8,12,18,.55);color:var(--fg);'
+        + 'font:14px/1.6 system-ui,sans-serif;pointer-events:none;z-index:5';
+      const host = this._canvas?.parentElement;
+      if (host) {
+        if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+        host.appendChild(el);
+      }
+      this._loadingEl = el;
+    }
+    if (text !== undefined) this._loadingEl.textContent = text;
+    this._loadingEl.style.color = isError ? 'var(--danger)' : 'var(--fg)';
+  }
+
+  // ─── 生命周期 ──────────────────────────────────────────────
+
+  /** 简化模型直接渲染，精细模型启用完整后处理。 */
+  _applyPipeline() {
+    if (!this._renderer) return;
+    if (this._model === 'simplified') {
+      this._teardownComposer();
+      this._renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
+    } else {
+      this._buildComposer();
+    }
+    this._needsRender = true;
+  }
+
+  /** 构建后处理链。 */
+  _buildComposer() {
+    const ratio = Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO);
+    const w = this._canvas.clientWidth || 1;
+    const h = this._canvas.clientHeight || 1;
+    this._renderer.setPixelRatio(ratio);
+    // 重建前必须自己释放旧的 pass
+    this._teardownComposer();
+    try {
+      // HalfFloat + 4x MSAA
+      const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4, stencilBuffer: true });
+      this._composer = new EffectComposer(this._renderer, rt);
+      this._composer.setPixelRatio(ratio);
+      this._composer.setSize(w, h);
+      this._composer.addPass(new RenderPass(this._scene, this._camera));
+      this._bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD);
+      this._composer.addPass(this._bloomPass);
+      // OutputPass 负责最终的色调映射与 sRGB 输出
+      this._composer.addPass(new OutputPass());
+    } catch (err) {
+      console.warn('[preview] 后处理初始化失败，回退为直接渲染:', err);
+      this._teardownComposer();
+    }
+    this._needsRender = true;
+  }
+
+  /** 释放整条后处理链并清空引用 */
+  _teardownComposer() {
+    this._composer?.dispose();
+    this._bloomPass?.dispose();
+    this._composer = null;
+    this._bloomPass = null;
+  }
+
+  /** 出图: 有 composer 时走泛光后处理，否则直接渲染 */
+  _draw() {
+    if (this._composer) this._composer.render();
+    else this._renderer.render(this._scene, this._camera);
+  }
+
+  resize() {
+    if (!this._canvas || !this._renderer || !this._camera) return;
+    const w = this._canvas.clientWidth, h = this._canvas.clientHeight;
+    if (this._canvas.width !== w || this._canvas.height !== h) {
+      this._renderer.setSize(w, h, false);
+      if (this._composer) this._composer.setSize(w, h);
+    }
+    this._camera.aspect = w / h;
+    this._camera.updateProjectionMatrix();
+  }
+
+  /**
+   * 导出当前预览画面为 PNG 画布
+   * 渲染器未开启 preserveDrawingBuffer，需先同步渲染一帧，再在同一执行块内捕获画面
+   * @param {number} [scale=2] 输出分辨率倍率（相对画布像素尺寸，画布本身已含 devicePixelRatio）
+   * @returns {HTMLCanvasElement|null} 合成后的画布，失败返回 null
+   */
+  exportImage(scale = 2) {
+    if (!this._renderer || !this._scene || !this._camera || !this._canvas) return null;
+    this.resize();
+    this._draw();
+    const w = Math.max(1, Math.round(this._canvas.width * scale));
+    const h = Math.max(1, Math.round(this._canvas.height * scale));
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    const ctx = out.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(this._canvas, 0, 0, w, h);
+    return out;
+  }
+
+  dispose() {
+    this._renderToken += 1;
+    if (this._animFrameId !== null) {
+      cancelAnimationFrame(this._animFrameId);
+      this._animFrameId = null;
+    }
+    if (this._resizeObserver) { this._resizeObserver.disconnect(); this._resizeObserver = null; }
+    window.removeEventListener('blur', this._onBlur);
+    this.clearScene();
+    if (this._gridGroup) {
+      this._gridGroup.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          for (const m of mats) m.dispose();
+        }
+      });
+      this._gridGroup = null;
+    }
+    if (this._gridLabelTexture) { this._gridLabelTexture.dispose(); this._gridLabelTexture = null; }
+    if (this._starfieldGroup) {
+      disposeStarfield(this._starfieldGroup);
+      this._scene?.remove(this._starfieldGroup);
+      this._starfieldGroup = null;
+    }
+    for (const m of [this._originSphere, this._starGlowInner]) {
+      if (!m) continue;
+      m.geometry?.dispose?.();
+      m.material?.dispose?.();
+      this._scene?.remove(m);
+    }
+    this._originSphere = null;
+    this._starGlowInner = null;
+    if (this._sharedBackMaterial) { this._sharedBackMaterial.dispose(); this._sharedBackMaterial = null; }
+    this._frameBackColor = null;
+    this._starEmissionColor = null;
+    if (this._nodeGeoms) {
+      this._nodeGeoms.body?.dispose?.();
+      this._nodeGeoms.cap?.dispose?.();
+      this._nodeGeoms = null;
+    }
+    this._setLoading(false);
+    this._teardownComposer();
+    if (this._renderer) { this._renderer.dispose(); this._renderer = null; }
+    if (this._controls) { this._controls.dispose(); this._controls = null; }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 内部实现
+  // ═══════════════════════════════════════════════════════════
+
+  _startLoop() {
+    const rotTmp = new THREE.Quaternion();
+    const loop = () => {
+      this._animFrameId = requestAnimationFrame(loop);
+      const dt = Math.min(this._clock.getDelta(), 0.1);
+      if (this._shellRotationEnabled && (this._shellGroups.length || this._cloudGroups.length)) {
+        const maxR = this._currentScale > 0 ? 1 / this._currentScale : 1;
+        let hasVisibleRotating = false;
+        const rotate = (sg) => {
+          if (!sg.group.visible || sg.rotates === false) return;
+          hasVisibleRotating = true;
+          const omega = this._shellSpeed * maxR / sg.radius;
+          rotTmp.setFromAxisAngle(sg.pole, omega * dt);   // 复用临时四元数，避免每帧分配
+          sg.group.quaternion.premultiply(rotTmp);
+        };
+        for (const sg of this._shellGroups) rotate(sg);
+        for (const sg of this._cloudGroups) rotate(sg);
+        if (hasVisibleRotating) this._needsRender = true; // 只有可见的旋转对象才持续渲染
+      }
+      this._controls.update(); // 处理阻尼惯性（change 事件会置脏）
+      // 静止且无交互/变化时跳过渲染（省电）
+      if (this._needsRender) {
+        this.resize();
+        this._draw();
+        this._needsRender = false;
+      }
+    };
+    this._animFrameId = requestAnimationFrame(loop);
+  }
+
+  _createLongitudeGrid(radius) {
+    if (!this._gridGroup) return;
+    while (this._gridGroup.children.length) {
+      const c = this._gridGroup.children[0];
+      this._gridGroup.remove(c);
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+    }
+    if (this._gridLabelTexture) { this._gridLabelTexture.dispose(); this._gridLabelTexture = null; }
+    const tick = radius * 0.05, midTick = radius * 0.04, minorTick = radius * 0.03;
+    const fontSize = radius * 0.04;
+
+    // 刻度标签图集: 36 个 64×32 格
+    const CELL_W = 64, CELL_H = 32, COLS = 12, ROWS = 3;
+    const atlas = document.createElement('canvas');
+    atlas.width = CELL_W * COLS;
+    atlas.height = CELL_H * ROWS;
+    const actx = atlas.getContext('2d');
+    actx.fillStyle = '#ffdd99';
+    actx.font = 'bold 20px sans-serif';
+    actx.textAlign = 'center';
+    actx.textBaseline = 'middle';
+    for (let k = 0; k < 36; k++) {
+      const cx = (k % COLS) * CELL_W, cy = Math.floor(k / COLS) * CELL_H;
+      actx.fillText(String(k * 10), cx + CELL_W / 2, cy + CELL_H / 2 + 1);
+    }
+    const labelTex = new THREE.CanvasTexture(atlas);
+    labelTex.minFilter = THREE.LinearFilter;
+    this._gridLabelTexture = labelTex;
+
+    // 根刻度线 + 外圈圆环
+    const segPos = [];
+    const segCol = [];
+    const linearColors = new Map();
+    const linearColor = (hex) => {
+      let c = linearColors.get(hex);
+      if (!c) { c = new THREE.Color(hex); linearColors.set(hex, c); }
+      return c;
+    };
+    const addSegment = (ax, ay, az, bx, by, bz, hex) => {
+      segPos.push(ax, ay, az, bx, by, bz);
+      const c = linearColor(hex);
+      segCol.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    };
+
+    const dir = new THREE.Vector3();
+    const s = new THREE.Vector3();
+    const e = new THREE.Vector3();
+    for (let deg = 0; deg < 360; deg++) {
+      const rad = THREE.MathUtils.degToRad(deg + 180);
+      dir.set(Math.sin(rad), 0, Math.cos(rad));
+      const isMajor = deg % 10 === 0;
+      const len = isMajor ? tick : (deg % 5 === 0 ? midTick : minorTick);
+      s.copy(dir).multiplyScalar(radius);
+      e.copy(dir).multiplyScalar(radius + len);
+      addSegment(s.x, s.y, s.z, e.x, e.y, e.z, isMajor ? 0xffdd99 : (deg % 5 === 0 ? 0xaabbcc : 0x8899bb));
+    }
+    for (let i = 0; i < 128; i++) {
+      const a0 = (i / 128) * Math.PI * 2;
+      const a1 = ((i + 1) / 128) * Math.PI * 2;
+      addSegment(
+        Math.sin(a0) * radius, 0, Math.cos(a0) * radius,
+        Math.sin(a1) * radius, 0, Math.cos(a1) * radius,
+        0x556688,
+      );
+    }
+    const lineGeom = new THREE.BufferGeometry();
+    lineGeom.setAttribute('position', new THREE.Float32BufferAttribute(segPos, 3));
+    lineGeom.setAttribute('color', new THREE.Float32BufferAttribute(segCol, 3));
+    this._gridGroup.add(new THREE.LineSegments(lineGeom, new THREE.LineBasicMaterial({ vertexColors: true })));
+
+    // 36 个刻度标签
+    const labelPos = [];
+    const labelUV = [];
+    const labelIdx = [];
+    const up = new THREE.Vector3(0, 1, 0);
+    const tangent = new THREE.Vector3();
+    const origin = new THREE.Vector3();
+    for (let k = 0; k < 36; k++) {
+      const rad = THREE.MathUtils.degToRad(k * 10 + 180);
+      dir.set(Math.sin(rad), 0, Math.cos(rad));
+      tangent.crossVectors(dir, up);
+      origin.copy(dir).multiplyScalar(radius + tick * 1.35);
+      // 原 scale.x = fontSize*2（半宽 0.5 → fontSize）、scale.y = fontSize（半高 0.5 → fontSize/2）
+      const hx = fontSize;
+      const hy = fontSize * 0.5;
+      labelPos.push(
+        origin.x - tangent.x * hx - dir.x * hy, origin.y - tangent.y * hx - dir.y * hy, origin.z - tangent.z * hx - dir.z * hy,
+        origin.x + tangent.x * hx - dir.x * hy, origin.y + tangent.y * hx - dir.y * hy, origin.z + tangent.z * hx - dir.z * hy,
+        origin.x + tangent.x * hx + dir.x * hy, origin.y + tangent.y * hx + dir.y * hy, origin.z + tangent.z * hx + dir.z * hy,
+        origin.x - tangent.x * hx + dir.x * hy, origin.y - tangent.y * hx + dir.y * hy, origin.z - tangent.z * hx + dir.z * hy,
+      );
+      const u0 = (k % COLS) / COLS, u1 = u0 + 1 / COLS;
+      const r = Math.floor(k / COLS);
+      const v0 = 1 - (r + 1) / ROWS, v1 = 1 - r / ROWS; // CanvasTexture flipY: v=1 为画布顶部
+      labelUV.push(u0, v0, u1, v0, u1, v1, u0, v1);
+      const base = k * 4;
+      labelIdx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+    const labelGeom = new THREE.BufferGeometry();
+    labelGeom.setAttribute('position', new THREE.Float32BufferAttribute(labelPos, 3));
+    labelGeom.setAttribute('uv', new THREE.Float32BufferAttribute(labelUV, 2));
+    labelGeom.setIndex(labelIdx);
+    // 双面显示
+    const labelMat = new THREE.MeshBasicMaterial({ map: labelTex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+    const labelMesh = new THREE.Mesh(labelGeom, labelMat);
+    // 刻度标签最后画（renderOrder 高于其它透明物体），但保留深度测试，被球体遮挡时依旧隐藏
+    labelMesh.renderOrder = 4;
+    this._gridGroup.add(labelMesh);
+  }
+
+}
+
+export { DysonSpherePreview };

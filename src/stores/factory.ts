@@ -1,18 +1,18 @@
 import { computed, markRaw, reactive, ref, watch } from 'vue'
-import { parseBlueprintString } from '../lib/blueprint/factory/factoryParser.js'
-import { stringifyBlueprint } from '../lib/blueprint/factory/factoryEncoder.js'
-import { isInserter, isStation, itemName } from '../lib/blueprint/factory/factoryItems.js'
-import { compactBuildings, discardBuildings, discardRects, syncBeltIcon } from '../lib/factory/batchEdit.js'
-import { ITEM_MODEL } from '../lib/factory/buildingModels.js';
-import { 新建统计设置, 统计蓝图, 计算包含设施, 计算设施数量, 计算包含地基 } from '../lib/factory/stats.js';
-import type { FactoryPreview } from '../lib/factory/FactoryPreview.js'
-import type { FactoryBlueprint, FactoryHeader } from '../lib/blueprint/factory/factoryTypes'
-import type { BatchRule } from '../lib/factory/batchRules'
+import { parseBlueprintString } from '../blueprint/factory/factoryParser.js'
+import { stringifyBlueprint } from '../blueprint/factory/factoryEncoder.js'
+import { isInserter, isStation, itemName } from '../blueprint/factory/factoryItems.js'
+import { compactBuildings, discardBuildings, discardRects, syncBeltIcon } from '../factory/batchEdit.js'
+import { ITEM_MODEL } from '../factory/data/buildingModels.js';
+import { 新建统计设置, 统计蓝图, 计算包含设施, 计算设施数量, 计算包含地基 } from '../factory/stats.js';
+import type { FactoryPreview } from '../factory/preview/FactoryPreview.js'
+import type { FactoryBlueprint, FactoryHeader } from '../blueprint/factory/factoryTypes'
+import type { BatchRule } from '../factory/batchRules'
 import { saveAsText } from '../utils/download'
 
 /** 工厂预览工具的状态 */
 
-/** 蓝图统计设置，见 lib/factory/stats.js */
+/** 蓝图统计设置，见 factory/stats.js */
 export interface StatsSettings {
   /** 增产剂: 0 = 不用, 1141 = Mk.I, 1142 = Mk.II, 1143 = Mk.III */
   使用增产剂: number
@@ -47,7 +47,7 @@ export const factory = reactive({
 /** 「打开蓝图」弹窗 */
 export const showOpenModal = ref(false)
 
-/** 批量编辑的规则数组（规则类型表见 lib/factory/batchRules.ts） */
+/** 批量编辑的规则数组（规则类型表见 factory/batchRules.ts） */
 export const batchRules = ref<BatchRule[]>([])
 
 /** 左侧输入栏的四档: 信息 / 详情 / 统计 / 批量编辑 */

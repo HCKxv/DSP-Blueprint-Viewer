@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /** 制造设备的参数 */
 import { computed, reactive, ref } from 'vue'
-import { isLab } from '../../../lib/blueprint/factory/factoryItems.js'
-import { recipeName, recipeProductive } from '../../../lib/blueprint/factory/factoryRecipes.js'
-import { itemIconUrl } from '../../../lib/markup/itemIcons'
-import type { IconRef } from '../../../lib/markup/itemIcons'
-import { recipeCategoriesForBuilding } from '../../../lib/markup/recipeCatalog'
+import { isLab } from '../../../blueprint/factory/factoryItems.js'
+import { recipeName, recipeProductive } from '../../../factory/data/factoryRecipes.js'
+import { itemIconUrl } from '../../../factory/ui/itemIcons'
+import type { IconRef } from '../../../factory/ui/itemIcons'
+import { recipeCategoriesForBuilding } from '../../../factory/ui/recipeCatalog'
 import IconPickerModal from '../IconPickerModal.vue'
 import RecipeTip from '../RecipeTip.vue'
 

@@ -2,12 +2,10 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import BaseModal from '../BaseModal.vue'
 import { closeGenerateBlueprintModal, parseBlueprint, saveBlueprintText, store } from '../../stores/preview'
-import { 壳层描述转壳层数据 } from '../../lib/blueprint/sphere/singleShellTextParser.js'
-import { blueprintTypeName } from '../../lib/blueprint/sphere/sphereUtils.js'
-import { stringifyBlueprint } from '../../lib/blueprint/sphere/sphereEncoder.js'
-import { useToast } from '../../composables/useToast'
-
-const toast = useToast()
+import { 壳层描述转壳层数据 } from '../../blueprint/sphere/singleShellTextParser.js'
+import { blueprintTypeName } from '../../blueprint/sphere/sphereUtils.js'
+import { stringifyBlueprint } from '../../blueprint/sphere/sphereEncoder.js'
+import { show } from '../../stores/toast'
 
 const PLACEHOLDER = `节点:
 X, Y, Z || 经, 纬  // 例如: 3543,1328,1297 或 116.4,39.9
@@ -80,7 +78,7 @@ async function generateAndPreview(): Promise<void> {
     parseBlueprint()
     closeGenerateBlueprintModal()
   } catch (error) {
-    if (!errorMessage.value) toast.show(`生成蓝图失败：\n${(error as Error).message}`)
+    if (!errorMessage.value) show(`生成蓝图失败：\n${(error as Error).message}`)
   } finally {
     busy.value = ''
   }
@@ -92,9 +90,9 @@ async function copyToClipboard(): Promise<void> {
   try {
     const blueprintText = await generateText()
     await navigator.clipboard.writeText(blueprintText)
-    toast.show('生成的蓝图已复制到剪贴板')
+    show('生成的蓝图已复制到剪贴板')
   } catch (error) {
-    if (!errorMessage.value) toast.show(`生成或复制失败：\n${(error as Error).message}`)
+    if (!errorMessage.value) show(`生成或复制失败：\n${(error as Error).message}`)
   } finally {
     busy.value = ''
   }
@@ -107,9 +105,9 @@ async function downloadToFile(): Promise<void> {
     const blueprintText = await generateText()
     const saved = await saveBlueprintText(blueprintText, '生成的单层壳')
     if (!saved) return
-    toast.show(saved)
+    show(saved)
   } catch (error) {
-    if (!errorMessage.value) toast.show(`生成或下载失败：\n${(error as Error).message}`)
+    if (!errorMessage.value) show(`生成或下载失败：\n${(error as Error).message}`)
   } finally {
     busy.value = ''
   }

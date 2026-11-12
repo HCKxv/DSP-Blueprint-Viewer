@@ -17,7 +17,7 @@ import {
   isFoundationMode,
   type FillMode,
 } from '../../stores/painting'
-import { randomSeed } from '../../lib/painting/quantizeAlgorithms.js'
+import { randomSeed } from '../../painting/quantizeAlgorithms.js'
 
 // 底色来源
 const FILL_MODES: Array<{ value: FillMode; label: string; title?: string }> = [

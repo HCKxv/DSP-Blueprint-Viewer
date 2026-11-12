@@ -1,12 +1,14 @@
 import { markRaw, reactive, shallowRef, toRaw, watch } from 'vue'
-import { parseBlueprintString } from '../lib/blueprint/sphere/sphereParser.js'
-import { extractSingleShell, extractStructure } from '../lib/blueprint/sphere/sphereEdit.js'
-import { stringifyBlueprint } from '../lib/blueprint/sphere/sphereEncoder.js'
-import { computePower, fmtKW } from '../lib/power/power.js'
-import { computePointsAsync } from '../lib/power/powerAsync.js'
-import { buildStatsTree, type StatNode } from '../lib/preview/statsTree'
+import { parseBlueprintString } from '../blueprint/sphere/sphereParser.js'
+import { extractSingleShell, extractStructure } from '../sphere/edit.js'
+import { stringifyBlueprint } from '../blueprint/sphere/sphereEncoder.js'
+import { computePower } from '../sphere/power/power.js'
+import { fmtKW } from '../utils/energy.js'
+import { computePointsAsync } from '../sphere/power/powerAsync.js'
+import { buildStatsTree, type StatNode } from '../sphere/statsTree'
 import { saveAsText } from '../utils/download'
-import { useToast } from '../composables/useToast'
+import { toPlainCopy } from '../utils/clonePlain.js'
+import { show } from './toast'
 
 /** DysonSpherePreview 的命令式子集（由 PreviewPanel 注入实例） */
 export interface DysonPreview {
@@ -21,8 +23,6 @@ export interface DysonPreview {
   setModel(model: 'detailed' | 'simplified'): void
   setSailDensity(density: number): void
 }
-
-const toast = useToast()
 
 // 响应式全局状态
 const store = reactive({
@@ -213,7 +213,7 @@ async function updatePoints() {
     if ((error as Error).name === 'AbortError' || parsed !== store.parsed) return
     store.powerText = '计算失败'
     store.powerResult = null
-    toast.show(`发电量计算失败：\n${(error as Error).message}`)
+    show(`发电量计算失败：\n${(error as Error).message}`)
     return
   }
   if (parsed !== store.parsed) return   // 期间换了蓝图: 这次结果作废
@@ -232,7 +232,7 @@ export async function parseBlueprint() {
   const text = store.input.trim()
   if (!text) return
 
-  toast.show('解析蓝图中...', 10000)
+  show('解析蓝图中...', 10000)
   store.parsing = true
   store.errorMessage = ''
   store.parsed = null
@@ -255,10 +255,10 @@ export async function parseBlueprint() {
     updatePoints()
     preview.value?.render(parsed)
 
-    toast.show('成功解析蓝图')
+    show('成功解析蓝图')
   } catch (error) {
     store.errorMessage = (error as Error).message
-    toast.show(`解析蓝图失败：\n${(error as Error).message}`)
+    show(`解析蓝图失败：\n${(error as Error).message}`)
   } finally {
     store.parsing = false
   }
@@ -274,7 +274,7 @@ export function resetBlueprint() {
   store.showRadiusInput = true
   store.parsing = false
   preview.value?.clearScene()
-  toast.show('已清空蓝图')
+  show('已清空蓝图')
 }
 
 /** 单层壳半径变化：重新计算结构与细胞点数（随半径变化） */
@@ -301,16 +301,16 @@ export function setLayerVisible(type: 'shell' | 'cloud', id: number, visible: bo
 async function exportShellLayer(orbitId: number) {
   const parsed = store.parsed
   if (!parsed) {
-    toast.show('当前没有已解析的蓝图')
+    show('当前没有已解析的蓝图')
     return
   }
   try {
     const single = extractSingleShell(toRaw(parsed), orbitId)
-    const text = await stringifyBlueprint(single)
+    const text = await stringifyBlueprint(toPlainCopy(single))
     await navigator.clipboard.writeText(text)
-    toast.show(`已提取壳层 ${orbitId} 为单层壳蓝图，并复制到剪贴板`)
+    show(`已提取壳层 ${orbitId} 为单层壳蓝图，并复制到剪贴板`)
   } catch (error) {
-    toast.show(`提取壳层失败：\n${(error as Error).message}`)
+    show(`提取壳层失败：\n${(error as Error).message}`)
   }
 }
 
@@ -318,11 +318,11 @@ async function exportShellLayer(orbitId: number) {
 function openCopyShellModal() {
   const parsed = store.parsed
   if (!parsed) {
-    toast.show('当前没有已解析的蓝图')
+    show('当前没有已解析的蓝图')
     return
   }
   if (parsed.typeId !== 1) {
-    toast.show('仅单层壳蓝图支持复制到多层')
+    show('仅单层壳蓝图支持复制到多层')
     return
   }
   store.showCopyShellModal = true
@@ -357,16 +357,16 @@ export function closeGenerateBlueprintModal() {
 async function exportStructure(type:'shell'|'cloud') {
   const parsed = store.parsed
   if (!parsed) {
-    toast.show('当前没有已解析的蓝图')
+    show('当前没有已解析的蓝图')
     return
   }
   try {
     const single = extractStructure(toRaw(parsed), type)
-    const text = await stringifyBlueprint(single)
+    const text = await stringifyBlueprint(toPlainCopy(single))
     await navigator.clipboard.writeText(text)
-    toast.show(`已提取为${type==='shell'? '戴森壳':'戴森云'}蓝图，并复制到剪贴板`)
+    show(`已提取为${type==='shell'? '戴森壳':'戴森云'}蓝图，并复制到剪贴板`)
   } catch (error) {
-    toast.show(`提取蓝图失败：\n${(error as Error).message}`)
+    show(`提取蓝图失败：\n${(error as Error).message}`)
   }
 }
 
@@ -374,15 +374,15 @@ async function exportStructure(type:'shell'|'cloud') {
 async function exportBlueprint() {
   const parsed = store.parsed
   if (!parsed) {
-    toast.show('当前没有已解析的蓝图')
+    show('当前没有已解析的蓝图')
     return
   }
   try {
-    const text = await stringifyBlueprint(toRaw(parsed))
+    const text = await stringifyBlueprint(toPlainCopy(toRaw(parsed)))
     const saved = await saveBlueprintText(text, '戴森球')
-    if (saved) toast.show(saved)   // 取消保存不提示
+    if (saved) show(saved)   // 取消保存不提示
   } catch (error) {
-    toast.show(`导出蓝图失败：\n${(error as Error).message}`)
+    show(`导出蓝图失败：\n${(error as Error).message}`)
   }
 }
 
@@ -427,11 +427,11 @@ export function setSailDensity(density: number) {
 export function handleBlueprintText(text: string) {
   const trimmed = (text || '').trim()
   if (!trimmed) {
-    toast.show('内容为空')
+    show('内容为空')
     return
   }
   if (!trimmed.startsWith('DYBP:')) {
-    toast.show('内容不是有效的球体蓝图')
+    show('内容不是有效的球体蓝图')
     return
   }
 

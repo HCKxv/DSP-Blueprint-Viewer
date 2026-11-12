@@ -9,11 +9,13 @@ import PaintingParse from './components/PaintingParse.vue'
 import { store, parseBlueprint } from './stores/preview'
 import { loadBlueprintText } from './stores/factory'
 import { activeTool } from './stores/tool'
+import { loadVisitorStats } from './utils/visitorStats'
 import { clearTxtParamFromUrl, loadBlueprintFromUrl } from './utils/urlLoader'
-import { useToast } from './composables/useToast'
-import { enableUrlLoad, showFooter } from './config/app'
+import { show } from './stores/toast'
 
-const toast = useToast()
+const enableUrlLoad = import.meta.env.VITE_ENABLE_URL_LOAD === 'true'
+const showFooter = import.meta.env.VITE_SHOW_FOOTER === 'true'
+const visitorStatsEnabled = import.meta.env.VITE_SHOW_VISITOR_STATS === 'true'
 
 /** URL 参数加载（?txt=...） */
 function loadUrlBlueprint() {
@@ -23,22 +25,22 @@ function loadUrlBlueprint() {
     return
   }
   loadBlueprintFromUrl({
-    onLoadStart: () => toast.show('正在加载蓝图',10_000),
+    onLoadStart: () => show('正在加载蓝图',10_000),
     // type 由蓝图开头标记判定：DYBP: → 球体预览；BLUEPRINT: → 工厂预览
     onLoaded: async (text, type) => {
       if (type === 'factory') {
         activeTool.value = 'factory'
         const res = await loadBlueprintText(text)
-        if (!res.ok) toast.show(`加载蓝图失败：\n${res.message}`)
-        else toast.show(res.message)
+        if (!res.ok) show(`加载蓝图失败：\n${res.message}`)
+        else show(res.message)
         return
       }
       activeTool.value = 'preview'
       store.input = text
       parseBlueprint()
     },
-    onError: (e) => toast.show(`加载蓝图失败：\n${e.message}`),
-  }).catch((e: Error) => toast.show(`加载蓝图失败：\n${e.message}`))
+    onError: (e) => show(`加载蓝图失败：\n${e.message}`),
+  }).catch((e: Error) => show(`加载蓝图失败：\n${e.message}`))
 }
 
 // 全局拖放拦截 / 中键自动滚动阻止
@@ -54,6 +56,7 @@ function onMouseDown(e: MouseEvent) {
 }
 
 onMounted(() => {
+  if (visitorStatsEnabled) loadVisitorStats()
   window.addEventListener('dragover', onGlobalDragOver)
   window.addEventListener('drop', onGlobalDrop)
   document.addEventListener('mousedown', onMouseDown)

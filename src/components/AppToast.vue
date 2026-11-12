@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { useToast } from '../composables/useToast'
+import { message, transitionEnabled, visible } from '../stores/toast'
 
-const { message, visible, transitionEnabled } = useToast()
 </script>
 
 <template>

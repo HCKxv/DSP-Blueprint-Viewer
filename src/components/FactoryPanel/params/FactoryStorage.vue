@@ -3,8 +3,8 @@
  * 储物仓（2101 / 2102）与战场分析基站（3009）的参数
  */
 import { computed } from 'vue'
-import { itemName } from '../../../lib/blueprint/factory/factoryItems.js'
-import { itemIconUrl } from '../../../lib/markup/itemIcons'
+import { itemName } from '../../../blueprint/factory/factoryItems.js'
+import { itemIconUrl } from '../../../factory/ui/itemIcons'
 
 const props = defineProps<{
   /** 建筑 id: 2101 小型储物仓 / 2102 大型储物仓 / 3009 战场分析基站 */

@@ -1,19 +1,19 @@
 import { computed, reactive, ref, shallowRef, toRaw, watch } from 'vue'
-import { generateFillGrid, generateFoundationPaint, type FillGrid, type FoundationPaint, type PaintStats } from '../lib/painting/generator'
-import { cropsImage, cropRectOf, EQUATOR_LAT_STOPS, EQUATOR_MAX_CROP, EQUATOR_MAX_CROP_POS, equatorLayout, latRangeOf, repeatsForMode, TILE_LAT_ROWS, TILE_LAT_STOPS } from '../lib/painting/projection.js'
-import { FOUNDATION_COLOR_COUNT, MAX_COLORS_STOPS } from '../lib/painting/encoder.js'
+import { generateFillGrid, generateFoundationPaint, type FillGrid, type FoundationPaint, type PaintStats } from '../painting/generator'
+import { cropsImage, cropRectOf, EQUATOR_LAT_STOPS, EQUATOR_MAX_CROP, EQUATOR_MAX_CROP_POS, equatorLayout, latRangeOf, repeatsForMode, TILE_LAT_ROWS, TILE_LAT_STOPS } from '../painting/projection.js'
+import { FOUNDATION_COLOR_COUNT, MAX_COLORS_STOPS } from '../painting/encoder.js'
 import {
   BUILTIN_BASES,
   buildPaintedBlueprint,
   infoOf,
   makeBaseFromBlueprint,
-} from '../lib/painting/baseBlueprint.js'
-import { parseBlueprintString } from '../lib/blueprint/sphere/sphereParser.js'
-import { stringifyBlueprint as stringifyFactoryBlueprint } from '../lib/blueprint/factory/factoryEncoder.js'
-import { createPlanetGrid, DEFAULT_PLANET_RADIUS } from '../lib/grid/planetGrid.js'
-import { forgetImage, loadImage } from '../lib/painting/imageLoader.js'
-import { imageAspectError } from '../lib/painting/imageLimits.js'
-import { buildFoundationBlueprint } from '../lib/painting/foundationBlueprint.js'
+} from '../painting/baseBlueprint.js'
+import { parseBlueprintString } from '../blueprint/sphere/sphereParser.js'
+import { stringifyBlueprint as stringifyFactoryBlueprint } from '../blueprint/factory/factoryEncoder.js'
+import { createPlanetGrid, DEFAULT_PLANET_RADIUS } from '../grid/planetGrid.js'
+import { forgetImage, loadImage } from '../painting/imageLoader.js'
+import { imageAspectError } from '../painting/imageLimits.js'
+import { buildFoundationBlueprint } from '../painting/foundationBlueprint.js'
 // 投影模式图标: 用 ?raw 取内联 SVG，靠 currentColor 跟随卡片的选中态变色
 import hemisphereIcon from '../assets/hemisphere.svg?raw'
 import equirectIcon from '../assets/equirect.svg?raw'
@@ -27,7 +27,7 @@ export { MAX_COLORS_STOPS, BUILTIN_BASES, TILE_LAT_ROWS }
 /**
  * 彩绘生成工具的状态
  * 图片 → 生成模式与投影模式 → 投影采样到涂色网格 → 写进基底（戴森壳）或地基蓝图导出
- * （投影采样在 lib/painting/*，界面在 components/PaintingPanel/*）
+ * （投影采样在 painting/*，界面在 components/PaintingPanel/*）
  */
 
 export type ProjMode = 'hemisphere' | 'equator' | 'equirect' | 'tile'

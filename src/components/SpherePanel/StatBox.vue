@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { StatNode } from '../../lib/preview/statsTree'
+import type { StatNode } from '../../sphere/statsTree'
 
 const props = defineProps<{ node: StatNode }>()
 const emit = defineEmits<{
@@ -41,7 +41,9 @@ function onContextMenu(event: MouseEvent) {
         {{ node.button.label }}
       </button>
     </div>
-    <div class="stat-value" v-html="node.value"></div>
+    <div v-if="node.value?.length" class="stat-value">
+      <div v-for="(line, i) in node.value" :key="i">{{ line }}</div>
+    </div>
   </div>
 </template>
 

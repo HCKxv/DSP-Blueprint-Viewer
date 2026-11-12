@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import pkg from '../../package.json'
+import { computed, ref } from 'vue'
 import ToolSlider from './ToolSlider.vue'
 import PwaStatus from './PwaStatus.vue'
+import ChangelogModal from './ChangelogModal.vue'
 import { TOOLS, activeTool } from '../stores/tool'
-import { showPwaStatus } from '../config/app'
 
-const version = pkg.version.split('.').slice(0, 2).join('.')
+const showPwaStatus = import.meta.env.VITE_SHOW_PWA_STATUS === 'true'
 
-const name = "氢碳钾xv"
-const logo =
-  'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4NCjxzdmcgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHg9IjBweCIgeT0iMHB4IiB2aWV3Qm94PSIwIDAgNTY2LjkzIDU2Ni45MyIgZmlsbD0iI2U3ZWJmZiI+DQo8bWV0YWRhdGE+DQogICAgPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIg0KICAgICAgICAgICAgIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyI+DQogICAgICAgIDxyZGY6RGVzY3JpcHRpb24gYWJvdXQ9IiI+DQogICAgICAgICAgICA8ZGM6Y3JlYXRvcj7msKLnorPpkr54djwvZGM6Y3JlYXRvcj4NCiAgICAgICAgICAgIDxkYzpyaWdodHM+wqkgMjAyNiDmsKLnorPpkr54di4g5L+d55WZ5omA5pyJ5p2D5Yip44CC5pyq57uP6K645Y+v77yM5Lil56aB5aSN5Yi244CB5YiG5Y+R44CB5L+u5pS55oiW55So5LqO5Lu75L2V5ZWG5Lia55uu55qE44CCPC9kYzpyaWdodHM+DQogICAgICAgIDwvcmRmOkRlc2NyaXB0aW9uPg0KICAgIDwvcmRmOlJERj4NCjwvbWV0YWRhdGE+DQo8cGF0aCBkPSJNMjgyLjQ3LDQ5My44OGMtMzQuOTYsMC02Ni43Ni0xNC4wMi05MC41MS0zNi45NEwyOC4zNSw1MDAuNzdsMTIxLjMtMTM3LjgyYy0wLjEyLTIuNDItMC4xOC00Ljg1LTAuMTgtNy4zDQoJYzAtNTYuMTgsMzIuMjUtMTA0LjUzLDc4LjU3LTEyNi4xNWw1NS4wMS0xOTEuN2w1NS4xOSwxOTIuMzNjNDUuNiwyMS45Miw3Ny4yNSw2OS44Nyw3Ny4yNSwxMjUuNTJjMCwxLjY4LTAuMDQsMy4zNS0wLjEsNS4wMQ0KCWwxMjMuMiwxNDAuMTFsLTE2NS4xOC00NC4yNkMzNDkuNjIsNDc5LjY4LDMxNy42NCw0OTMuODgsMjgyLjQ3LDQ5My44OHogTTM1MS45Myw0MjguNTdsMTI0LjA5LDMzLjI1TDM4Mi44OSwzNTUuOQ0KCWMwLjA5LTEuMTksMC4xNi0yLjM5LDAuMjItMy42MWMtMS41Ni00OC4xNi0yNi40Ny03OS45My01OC4yNS05NC41NmwtNDEuNzEtMTQ1LjM1bC00MS40NywxNDQuNQ0KCWMtMzEuNzMsMTQuMDEtNTYuOSw0NS41Ni01OS4zNiw5NS40MWMwLjA2LDEuODEsMC4xNiwzLjU5LDAuMjgsNS4zNUw5MC45LDQ2MS44MmwxMjMuMTItMzIuOTkNCglDMjUxLjc3LDQ2NC45MywzMTQuMzYsNDY1LjYzLDM1MS45Myw0MjguNTd6Ii8+DQo8cGF0aCBkPSJNMzM2LjEsNDExbDk1LjM5LDI1LjU2bC03MS42LTgxLjQzYzAuMDctMC45MiwwLjEzLTEuODQsMC4xNy0yLjc3Yy0xLjItMzcuMDItMjAuMzUtNjEuNDUtNDQuNzgtNzIuNjlsLTMyLjA3LTExMS43Mw0KCWwtMzEuODgsMTExLjA4Yy0yNC4zOSwxMC43Ny00My43NCwzNS4wMi00NS42Myw3My4zNWMwLjA1LDEuMzksMC4xMiwyLjc2LDAuMjIsNC4xMWwtNzAuNDksODAuMDlsOTQuNjQtMjUuMzYNCglDMjU5LjEsNDM4Ljk1LDMwNy4yMSw0MzkuNDgsMzM2LjEsNDExeiIvPg0KPC9zdmc+DQo='
+const version = import.meta.env.VITE_APP_VERSION || '0.0'
+const changelogModal = ref<InstanceType<typeof ChangelogModal> | null>(null)
+
+const logo = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4NCjxzdmcgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHg9IjBweCIgeT0iMHB4IiB2aWV3Qm94PSIwIDAgNTY2LjkzIDU2Ni45MyIgZmlsbD0iI2U3ZWJmZiI+DQo8bWV0YWRhdGE+DQogICAgPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIg0KICAgICAgICAgICAgIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyI+DQogICAgICAgIDxyZGY6RGVzY3JpcHRpb24gYWJvdXQ9IiI+DQogICAgICAgICAgICA8ZGM6Y3JlYXRvcj7msKLnorPpkr54djwvZGM6Y3JlYXRvcj4NCiAgICAgICAgICAgIDxkYzpyaWdodHM+wqkgMjAyNiDmsKLnorPpkr54di4g5L+d55WZ5omA5pyJ5p2D5Yip44CC5pyq57uP6K645Y+v77yM5Lil56aB5aSN5Yi244CB5YiG5Y+R44CB5L+u5pS55oiW55So5LqO5Lu75L2V5ZWG5Lia55uu55qE44CCPC9kYzpyaWdodHM+DQogICAgICAgIDwvcmRmOkRlc2NyaXB0aW9uPg0KICAgIDwvcmRmOlJERj4NCjwvbWV0YWRhdGE+DQo8cGF0aCBkPSJNMjgyLjQ3LDQ5My44OGMtMzQuOTYsMC02Ni43Ni0xNC4wMi05MC41MS0zNi45NEwyOC4zNSw1MDAuNzdsMTIxLjMtMTM3LjgyYy0wLjEyLTIuNDItMC4xOC00Ljg1LTAuMTgtNy4zDQoJYzAtNTYuMTgsMzIuMjUtMTA0LjUzLDc4LjU3LTEyNi4xNWw1NS4wMS0xOTEuN2w1NS4xOSwxOTIuMzNjNDUuNiwyMS45Miw3Ny4yNSw2OS44Nyw3Ny4yNSwxMjUuNTJjMCwxLjY4LTAuMDQsMy4zNS0wLjEsNS4wMQ0KCWwxMjMuMiwxNDAuMTFsLTE2NS4xOC00NC4yNkMzNDkuNjIsNDc5LjY4LDMxNy42NCw0OTMuODgsMjgyLjQ3LDQ5My44OHogTTM1MS45Myw0MjguNTdsMTI0LjA5LDMzLjI1TDM4Mi44OSwzNTUuOQ0KCWMwLjA5LTEuMTksMC4xNi0yLjM5LDAuMjItMy42MWMtMS41Ni00OC4xNi0yNi40Ny03OS45My01OC4yNS05NC41NmwtNDEuNzEtMTQ1LjM1bC00MS40NywxNDQuNQ0KCWMtMzEuNzMsMTQuMDEtNTYuOSw0NS41Ni01OS4zNiw5NS40MWMwLjA2LDEuODEsMC4xNiwzLjU5LDAuMjgsNS4zNUw5MC45LDQ2MS44MmwxMjMuMTItMzIuOTkNCglDMjUxLjc3LDQ2NC45MywzMTQuMzYsNDY1LjYzLDM1MS45Myw0MjguNTd6Ii8+DQo8cGF0aCBkPSJNMzM2LjEsNDExbDk1LjM5LDI1LjU2bC03MS42LTgxLjQzYzAuMDctMC45MiwwLjEzLTEuODQsMC4xNy0yLjc3Yy0xLjItMzcuMDItMjAuMzUtNjEuNDUtNDQuNzgtNzIuNjlsLTMyLjA3LTExMS43Mw0KCWwtMzEuODgsMTExLjA4Yy0yNC4zOSwxMC43Ny00My43NCwzNS4wMi00NS42Myw3My4zNWMwLjA1LDEuMzksMC4xMiwyLjc2LDAuMjIsNC4xMWwtNzAuNDksODAuMDlsOTQuNjQtMjUuMzYNCglDMjU5LjEsNDM4Ljk1LDMwNy4yMSw0MzkuNDgsMzM2LjEsNDExeiIvPg0KPC9zdmc+DQo='
 
 // 顶栏滑块
 const toolItems = computed(() => TOOLS.map((t) => ({ value: t.id, label: t.label })))
@@ -24,17 +24,28 @@ const titleTool = computed(() => {
 
 <template>
   <div class="app-header">
-    <img class="app-logo" :src="logo" :title="`by.${name}`" />
-    <span>戴森球计划<span class="header-extra">·{{ titleTool }} V{{ version }}</span></span>
-
+    <span class="header-extra"><img class="app-logo" :src="logo" /></span>
+    <span class="header-extra">戴森球计划·{{ titleTool }}</span>
     <ToolSlider
       v-model="activeTool"
       class="header-tool-switch"
       :items="toolItems"
     />
 
-    <PwaStatus v-if="showPwaStatus" class="header-pwa-status" />
+    <span class="header-right">
+      <button
+        type="button"
+        class="header-version"
+        :title="`查看更新日志`"
+        @click="changelogModal?.open()"
+      >
+        V{{ version }}
+      </button>
+      <PwaStatus v-if="showPwaStatus" />
+      <a class="header-author" href="https://github.com/HCKxv/dysonBlueprintParser" target="_blank">by.氢碳钾xv</a>
+    </span>
   </div>
+  <ChangelogModal ref="changelogModal" />
 </template>
 
 <style scoped>
@@ -43,7 +54,7 @@ const titleTool = computed(() => {
   background: var(--bg-panel);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 7px 14px;
+  padding: 7px 10px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -60,14 +71,48 @@ const titleTool = computed(() => {
   display: block;
 }
 
-/* PWA 状态：靠页头最右 */
-.header-pwa-status {
+.header-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
 }
 
-/* 靠左、每档等宽（指示块才能按档位平移对正） */
+.header-version {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--fg-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: normal;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.header-version:hover {
+  background: var(--state-hover);
+  color: var(--fg);
+}
+
+.header-author {
+  font-weight: normal;
+  font-size: 12px;
+  opacity: 0.55;
+  color: var(--fg-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.header-author:hover {
+  opacity: 1;
+}
+
 .header-tool-switch {
-  margin-left: 10px;
+  margin-left: 5px;
 }
 
 .header-tool-switch :deep(.tool-slider-btn) {
@@ -76,17 +121,22 @@ const titleTool = computed(() => {
 }
 
 @media (max-width: 960px) {
+  .header-version {
+    display: none;
+  }
+
+  .header-author {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
   .header-extra {
     display: none;
   }
 
   .header-tool-switch {
-    order: 3;
     margin-left: 0;
-  }
-
-  .header-pwa-status {
-    order: 4;
   }
 }
 </style>

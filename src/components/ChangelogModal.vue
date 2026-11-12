@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import pkg from '../../package.json'
 import BaseModal from './BaseModal.vue'
 
-const fullVersion = `V${pkg.version}`
+const version = `V${import.meta.env.VITE_APP_VERSION || '0.0'}`
 
 interface ChangelogEntry {
   version: string
@@ -41,7 +40,7 @@ defineExpose({ open: openModal })
 </script>
 
 <template>
-  <BaseModal :open="open" :title="`更新日志 ${fullVersion}`" @close="closeModal">
+  <BaseModal :open="open" :title="`更新日志 ${version}`" @close="closeModal">
     <div v-for="(entry, i) in entries" :key="i" class="changelog-entry">
       <h3>{{ entry.version }}</h3>
       <ul>
