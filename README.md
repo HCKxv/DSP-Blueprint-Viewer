@@ -20,7 +20,7 @@
 
 在线访问地址：
 
-> https://hckxv.github.io/dysonBlueprintParser/
+> https://hckxv.github.io/DSP-Blueprint-Viewer/
 
 通过链接加载蓝图（`?txt=` 参数）的用法见 [URL 接口说明](/docs/URL接口说明.md)。
 

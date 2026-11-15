@@ -2,12 +2,12 @@
 
 本工具支持通过 URL 参数直接加载蓝图：把蓝图代码文件的地址放进 `?txt=`，打开链接后页面会自动下载文件、按内容判断蓝图类型，并切到对应界面（戴森球预览 / 工厂蓝图）。
 
-在线地址：<https://hckxv.github.io/dysonBlueprintParser/>
+在线地址：<https://hckxv.github.io/DSP-Blueprint-Viewer/>
 
 ## 快速开始
 
 ```
-https://hckxv.github.io/dysonBlueprintParser/?txt=蓝图链接
+https://hckxv.github.io/DSP-Blueprint-Viewer/?txt=蓝图链接
 ```
 
 把 `蓝图链接` 换成任意蓝图文件地址即可。文件内容以 `DYBP:` 开头会进入戴森球预览，以 `BLUEPRINT:` 开头会进入工厂蓝图。
@@ -49,7 +49,7 @@ https://example.com/blueprints/a.txt
 示例：
 
 ```
-https://hckxv.github.io/dysonBlueprintParser/?txt=https://example.com/blueprints/a.txt
+https://hckxv.github.io/DSP-Blueprint-Viewer/?txt=https://example.com/blueprints/a.txt
 ```
 
 ### 同源地址
@@ -57,7 +57,7 @@ https://hckxv.github.io/dysonBlueprintParser/?txt=https://example.com/blueprints
 蓝图文件放在本工具站自己的目录下时，可以直接写相对路径或绝对路径，不受跨域限制：
 
 ```
-https://hckxv.github.io/dysonBlueprintParser/?txt=./a.txt
+https://hckxv.github.io/DSP-Blueprint-Viewer/?txt=./a.txt
 ```
 
 ## 蓝图文件要求
@@ -97,7 +97,7 @@ https://hckxv.github.io/dysonBlueprintParser/?txt=./a.txt
 
 ```js
 const fileUrl = 'https://example.com/blueprints/a.txt'
-const link = `https://hckxv.github.io/dysonBlueprintParser/?txt=${encodeURIComponent(fileUrl)}`
+const link = `https://hckxv.github.io/DSP-Blueprint-Viewer/?txt=${encodeURIComponent(fileUrl)}`
 ```
 
 ## 维护说明
