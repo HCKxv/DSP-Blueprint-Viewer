@@ -42,7 +42,7 @@ const titleTool = computed(() => {
         V{{ version }}
       </button>
       <PwaStatus v-if="showPwaStatus" />
-      <a class="header-author" href="https://github.com/HCKxv/dysonBlueprintParser" target="_blank">by.氢碳钾xv</a>
+      <a class="header-author" href="https://github.com/HCKxv/DSP-Blueprint-Viewer" target="_blank">by.氢碳钾xv</a>
     </span>
   </div>
   <ChangelogModal ref="changelogModal" />
