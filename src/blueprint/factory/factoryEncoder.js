@@ -193,7 +193,7 @@ function writeBlueprintBody(blueprint) {
 }
 
 /**
- * 将解析结果编码回工厂蓝图字符串（与游戏互认的最新格式）
+ * 将解析结果编码回工厂蓝图字符串
  * @param {object} blueprint parseBlueprintString 的返回值
  * @returns {Promise<string>}
  */

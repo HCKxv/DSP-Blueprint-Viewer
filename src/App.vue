@@ -6,42 +6,34 @@ import SphereParse from './components/SphereParse.vue'
 import FactoryParse from './components/FactoryParse.vue'
 import FooterBar from './components/FooterBar.vue'
 import PaintingParse from './components/PaintingParse.vue'
-import { store, parseBlueprint } from './stores/preview'
-import { loadBlueprintText } from './stores/factory'
-import { activeTool } from './stores/tool'
 import { loadVisitorStats } from './utils/visitorStats'
 import { clearTxtParamFromUrl, loadBlueprintFromUrl } from './utils/urlLoader'
+import { activeTool } from './stores/tool'
+import { applyBlueprintText } from './stores/blueprintImport'
+import { startBlueprintMessageBridge } from './utils/postMessageBridge'
 import { show } from './stores/toast'
 
-const enableUrlLoad = import.meta.env.VITE_ENABLE_URL_LOAD === 'true'
+const enableExternalLoad = import.meta.env.VITE_ENABLE_EXTERNAL_LOAD === 'true'
 const showFooter = import.meta.env.VITE_SHOW_FOOTER === 'true'
 const visitorStatsEnabled = import.meta.env.VITE_SHOW_VISITOR_STATS === 'true'
 
 /** URL 参数加载（?txt=...） */
 function loadUrlBlueprint() {
   // 关闭时也要清掉 ?txt=，否则参数会留在地址栏
-  if (!enableUrlLoad) {
+  if (!enableExternalLoad) {
     clearTxtParamFromUrl()
     return
   }
   loadBlueprintFromUrl({
     onLoadStart: () => show('正在加载蓝图',10_000),
-    // type 由蓝图开头标记判定：DYBP: → 球体预览；BLUEPRINT: → 工厂预览
-    onLoaded: async (text, type) => {
-      if (type === 'factory') {
-        activeTool.value = 'factory'
-        const res = await loadBlueprintText(text)
-        if (!res.ok) show(`加载蓝图失败：\n${res.message}`)
-        else show(res.message)
-        return
-      }
-      activeTool.value = 'preview'
-      store.input = text
-      parseBlueprint()
+    onLoaded: (text) => {
+      applyBlueprintText(text).catch((e: Error) => show(`加载蓝图失败：\n${e.message}`))
     },
     onError: (e) => show(`加载蓝图失败：\n${e.message}`),
   }).catch((e: Error) => show(`加载蓝图失败：\n${e.message}`))
 }
+
+let stopBlueprintBridge: (() => void) | undefined
 
 // 全局拖放拦截 / 中键自动滚动阻止
 function onGlobalDragOver(e: DragEvent) {
@@ -63,12 +55,20 @@ onMounted(() => {
 
   // URL 参数加载（?txt=...）
   loadUrlBlueprint()
+
+  // postMessage 投递：宿主页打开 / 嵌入本页后可直接发送蓝图文本
+  if (enableExternalLoad) {
+    stopBlueprintBridge = startBlueprintMessageBridge({
+      onText: (text) => applyBlueprintText(text),
+    })
+  }
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('dragover', onGlobalDragOver)
   window.removeEventListener('drop', onGlobalDrop)
   document.removeEventListener('mousedown', onMouseDown)
+  stopBlueprintBridge?.()
 })
 </script>
 

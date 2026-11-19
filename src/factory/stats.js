@@ -141,7 +141,7 @@ function 统计蓝图(blueprint) {
       const 最大充能功率 = (building.parameters?.workEnergyPerTick ?? 0) * 1_000;   // workEnergyPerTick 单位为 MW
       统计.功率.运输站 += 最大充能功率;
     } else if (building.itemId == 2316) {
-      const 工作kW = (building.parameters?.workEnergyPerTick > 0
+      const 工作kW = (building.parameters?.workEnergyPerTick >= 0
         ? building.parameters.workEnergyPerTick
         : 2.94) * 1000;
       const s = (building.parameters?.miningSpeed || 10000) / 10000;

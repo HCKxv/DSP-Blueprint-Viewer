@@ -125,7 +125,7 @@ async function onSave() {
     <button
       class="btn-sm btn-ghost"
       type="button"
-      :disabled="!hasBlueprint || factory.parsing || !hasChanges"
+      :disabled="!hasBlueprint || factory.parsing"
       @click="onSave"
     >保存蓝图</button>
   </div>

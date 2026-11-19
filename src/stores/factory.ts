@@ -717,7 +717,7 @@ export async function copyBlueprint(): Promise<{ ok: boolean, message: string }>
 }
 
 /**
- * 保存蓝图到文件: ，默认开在原文件所在目录（没有原文件就下载文件夹），
+ * 保存蓝图到文件: ，默认开在原文件所在目录（没有原文件就文档文件夹），
  * 保存成功后记住新句柄；没有那个 API 的浏览器退化成下载，取消不算失败（message 为空）
  */
 export async function saveBlueprintFile(): Promise<{ ok: boolean, message: string }> {
@@ -728,8 +728,8 @@ export async function saveBlueprintFile(): Promise<{ ok: boolean, message: strin
 
   const saved = await saveAsText(text, {
     suggestedName: handle?.name || '蓝图.txt',
-    // 打开过文件就把对话框开在原文件所在目录（startIn 接受文件句柄）；没有就开在下载文件夹
-    startIn: handle ?? 'downloads',
+    // 打开过文件就把对话框开在原文件所在目录（startIn 接受文件句柄）；没有就开在文档文件夹
+    startIn: handle ?? 'documents',
     types: [{ description: '蓝图文件', accept: { 'text/plain': ['.txt'] } }],
   })
   if (saved.error) return { ok: false, message: `保存失败：${saved.error}` }
