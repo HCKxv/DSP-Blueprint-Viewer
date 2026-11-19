@@ -24,6 +24,8 @@
 
 从其他页面加载蓝图（`?txt=` 链接 / postMessage 直投）的用法见 [接口说明](/docs/接口说明.md)。
 
+在网页里右键蓝图文本直接打开，可用 [Edge 扩展](/edge-extension/README.md)。
+
 ## 截图
 
 ![image](/docs/截图1.png)
