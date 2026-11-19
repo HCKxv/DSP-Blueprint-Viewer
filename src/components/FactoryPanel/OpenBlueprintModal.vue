@@ -53,7 +53,7 @@ async function onFileChange(e: Event) {
   if (file) await importWith(() => loadBlueprintFile(file))
 }
 
-/** 三条导入路径共用的收尾: 置忙、导入、报错或关窗 */
+/** 四条导入路径共用的收尾: 置忙、导入、报错或关窗 */
 async function importWith(load: () => Promise<{ ok: boolean, message: string }>) {
   busy.value = true
   error.value = ''
@@ -71,6 +71,25 @@ async function onImportText() {
   const value = text.value.trim()
   if (!value || busy.value) return
   await importWith(() => loadBlueprintText(value))
+}
+
+async function onImportClipboard() {
+  if (busy.value) return
+  error.value = ''
+  let value = ''
+  try {
+    if (typeof navigator.clipboard?.readText !== 'function') throw new Error('剪贴板不可用')
+    value = (await navigator.clipboard.readText()).trim()
+  } catch {
+    error.value = '无法读取剪贴板，请在输入框手动粘贴（Ctrl+V）'
+    return
+  }
+  if (!value) {
+    error.value = '剪贴板里没有文本内容'
+    return
+  }
+  text.value = value
+  await onImportText()
 }
 
 function onDragOver(e: DragEvent) {
@@ -158,6 +177,12 @@ function onClose() {
       <div v-if="error" class="factory-import-error">{{ error }}</div>
 
       <div class="btn-group center">
+        <button
+          class="btn-sm"
+          type="button"
+          :disabled="busy"
+          @click="onImportClipboard"
+        >从剪贴板导入</button>
         <button
           class="btn-sm"
           type="button"
