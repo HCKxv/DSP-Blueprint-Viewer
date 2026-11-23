@@ -2,10 +2,10 @@
 /** 制造设备的参数 */
 import { computed, reactive, ref } from 'vue'
 import { isLab } from '../../../blueprint/factory/factoryItems.js'
-import { recipeName, recipeProductive } from '../../../factory/data/factoryRecipes.js'
-import { itemIconUrl } from '../../../factory/ui/itemIcons'
-import type { IconRef } from '../../../factory/ui/itemIcons'
-import { recipeCategoriesForBuilding } from '../../../factory/ui/recipeCatalog'
+import { recipeData } from '../../../data/factoryRecipes.js'
+import { itemIconUrl } from '../../../factory/icon/itemIcons'
+import type { IconRef } from '../../../factory/icon/iconCatalog'
+import { recipeCategoriesForBuilding } from '../../../factory/icon/iconCatalog'
 import IconPickerModal from '../IconPickerModal.vue'
 import RecipeTip from '../RecipeTip.vue'
 
@@ -44,14 +44,14 @@ const lab = computed(() => isLab(props.itemId))
 const useRecipe = computed(() => !lab.value || Number(props.parameters?.researchMode ?? 0) === 1)
 
 /** 配方图标与名字 */
-const recipeIcon = computed(() => itemIconUrl(props.recipeId > 0 ? 20000 + props.recipeId : 504))
+const recipeIcon = computed(() => itemIconUrl(props.recipeId > 0 ? (recipeData(props.recipeId)?.icon || 504) : 504))
 const recipeText = computed(() => {
   if (props.recipeId <= 0) return '未指定配方'
-  return recipeName(props.recipeId) || `未知配方_${props.recipeId}`
+  return recipeData(props.recipeId)?.name || `未知配方_${props.recipeId}`
 })
 
 /** 这栋的配方是不是只能「加速生产」 */
-const fixedAccelerator = computed(() => props.recipeId > 0 && !recipeProductive(props.recipeId))
+const fixedAccelerator = computed(() => props.recipeId > 0 && !(recipeData(props.recipeId)?.productive ?? true))
 const acceleratorMode = computed(() => Number(props.parameters?.acceleratorMode ?? 0))
 
 /** 配方那行悬浮时贴着它画配方提示 */
@@ -130,7 +130,7 @@ function onPick(icon: IconRef) {
     <IconPickerModal
       :open="picker.open"
       :categories="recipeCategoriesForBuilding(itemId)"
-      :current="recipeId > 0 ? 20000 + recipeId : 0"
+      :current="recipeId > 0 ? (recipeData(recipeId)?.icon ?? 0) : 0"
       :anchor="picker.anchor"
       title="选择配方"
       @select="onPick"

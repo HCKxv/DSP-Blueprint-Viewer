@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { openGenerateBlueprintModal, store } from '../../stores/preview'
+import { experimentalFeatures } from '../../stores/tool'
 import StatSection from './StatSection.vue'
 import StatBox from './StatBox.vue'
 import type { StatNode, StatNodeAction } from '../../sphere/statsTree'
@@ -37,6 +38,12 @@ function openContextMenu(node: StatNode, event: MouseEvent) {
 
 function openGenerateMenu(event: MouseEvent) {
   showContextMenu([{ label: '生成蓝图', onClick: openGenerateBlueprintModal }], event)
+}
+
+const generateNode:StatNode = {
+  kind: 'stat',
+  label: '蓝图生成器',
+  button: {label:'生成蓝图',onClick:openGenerateBlueprintModal}
 }
 
 function closeContextMenu() {
@@ -85,13 +92,9 @@ onBeforeUnmount(() => bindMenuListeners(false))
           <StatBox v-else :node="node" @contextmenu="openContextMenu" />
         </template>
       </template>
-    </div>
 
-    <div
-      v-if="!store.parsed && !store.parsing"
-      class="stats-empty-trigger"
-      @contextmenu.stop.prevent="openGenerateMenu"
-    ></div>
+      <StatBox v-if="experimentalFeatures && !store.parsed && !store.parsing" :node="generateNode" />
+    </div>
   </div>
   <Teleport to="body">
     <div
@@ -119,15 +122,6 @@ onBeforeUnmount(() => bindMenuListeners(false))
 <style scoped>
 .stats-panel {
   position: relative;
-}
-
-/* 透明右键热区 */
-.stats-empty-trigger {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 128px;
-  height: 80px;
 }
 
 .stat-grid {

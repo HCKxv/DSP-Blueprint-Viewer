@@ -7,8 +7,8 @@
  * 滑杆上的值一律是「界面单位」，写回参数时由 codec 换算成原始 int32。
  */
 import { computed, nextTick, reactive, ref, watch } from 'vue'
-import { itemIconUrl } from '../../../factory/ui/itemIcons'
-import type { IconCategories, IconRef } from '../../../factory/ui/itemIcons'
+import { itemIconUrl } from '../../../factory/icon/itemIcons'
+import type { IconCategories, IconRef } from '../../../factory/icon/iconCatalog'
 import { itemName } from '../../../blueprint/factory/factoryItems.js'
 import IconPickerModal from '../IconPickerModal.vue'
 import FactorySelect from '../FactorySelect.vue'

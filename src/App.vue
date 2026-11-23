@@ -15,7 +15,7 @@ import { show } from './stores/toast'
 
 const enableExternalLoad = import.meta.env.VITE_ENABLE_EXTERNAL_LOAD === 'true'
 const showFooter = import.meta.env.VITE_SHOW_FOOTER === 'true'
-const visitorStatsEnabled = import.meta.env.VITE_SHOW_VISITOR_STATS === 'true'
+const visitorStatsEnabled = import.meta.env.VITE_VISITOR_STATS === 'true'
 
 /** URL 参数加载（?txt=...） */
 function loadUrlBlueprint() {

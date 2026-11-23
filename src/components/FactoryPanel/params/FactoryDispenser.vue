@@ -3,8 +3,8 @@
  * 物流配送器（2107）的参数
  */
 import { computed, ref } from 'vue'
-import { itemIconUrl } from '../../../factory/ui/itemIcons'
-import type { IconCategories, IconRef } from '../../../factory/ui/itemIcons'
+import { itemIconUrl } from '../../../factory/icon/itemIcons'
+import type { IconCategories, IconRef } from '../../../factory/icon/iconCatalog'
 import { itemName } from '../../../blueprint/factory/factoryItems.js'
 import IconPickerModal from '../IconPickerModal.vue'
 

@@ -1,13 +1,15 @@
 <script setup lang="ts">
 /** 详情: 预览里点中的那栋建筑 */
 import { computed, reactive, ref, watch } from 'vue'
-import { deleteBuilding, editBuilding, editLabGroup, editStationType, factory, linkedLabBuildings, reverseInserter, selectedBuilding, selectedBuildingCoord, selectedBuildingEndCoord } from '../../stores/factory'
+import { convertStationType, deleteBuilding, factory, flipInserter, labStackCount, updateBuilding, selectedBuilding, selectedBuildingCoord, selectedBuildingEndCoord } from '../../stores/factory'
+import type { BuildingChanges } from '../../stores/factory'
 import { isAssembler, isBelt, isInserter, isLab, isStation, isTurret, itemName } from '../../blueprint/factory/factoryItems.js'
 import { cloneData } from '../../utils/clonePlain.js'
-import { itemIconUrl } from '../../factory/ui/itemIcons'
-import type { IconCategories } from '../../factory/ui/itemIcons'
-import { ICON_CATEGORIES } from '../../factory/ui/iconCatalog'
+import { itemIconUrl } from '../../factory/icon/itemIcons'
+import type { IconCategories } from '../../factory/icon/iconCatalog'
+import { ICON_CATEGORIES } from '../../factory/icon/iconCatalog'
 import { show } from '../../stores/toast'
+import { experimentalFeatures } from '../../stores/tool'
 import FactoryAssembler from './params/FactoryAssembler.vue'
 import FactoryBelt from './params/FactoryBelt.vue'
 import FactoryDispenser from './params/FactoryDispenser.vue'
@@ -88,6 +90,69 @@ const coordRows = computed(() => {
   return rows
 })
 
+/** 调整传送带和分拣器的坐标 */
+const canAdjustCoord = computed(() => {
+  const building = selectedBuilding.value
+  if (!building || !Array.isArray(building.localOffset)) return false
+  return isBelt(building.itemId) || isInserter(building.itemId)
+})
+
+/** 坐标微调的增量 */
+const coordOffset = reactive([
+  { x: 0, y: 0, z: 0 },
+  { x: 0, y: 0, z: 0 },
+])
+
+/** X / Y / Z 三个输入框 */
+const COORD_AXES = [
+  { key: 'x', label: 'X' },
+  { key: 'y', label: 'Y' },
+  { key: 'z', label: 'Z' },
+] as const
+
+/** 增量行 */
+const coordOffsetRows = computed(() => {
+  const inserter = isInserter(selectedBuilding.value?.itemId)
+  const labels = inserter ? ['抓取', '卸下'] : ['坐标']
+  const points = inserter ? [localCoord.value, localCoordEnd.value] : [localCoord.value]
+  return labels.map((label, i) => {
+    const point = points[i]
+    return {
+      label,
+      index: i,
+      values: point?? { x: '', y: '', z: '' },
+    }
+  })
+})
+
+/** 有没有填过增量 */
+const coordOffsetDirty = computed(() => (
+  coordOffset.some((point) => point.x !== 0 || point.y !== 0 || point.z !== 0)
+))
+
+/** 改一项增量 */
+function onCoordOffsetChange(i: number, axis: 'x' | 'y' | 'z', e: Event) {
+  const el = e.target as HTMLInputElement
+  const typed = Number(el.value)
+  const value = Number.isFinite(typed) ? +typed.toFixed(4) : 0
+  coordOffset[i][axis] = value === 0 ? 0 : value // -0 收成 0
+  el.value = String(coordOffset[i][axis])
+}
+
+/** 增量归零 */
+function resetCoordOffset() {
+  for (const point of coordOffset) {
+    point.x = 0
+    point.y = 0
+    point.z = 0
+  }
+}
+
+/** 留 4 位小数 */
+function round4(value: number) {
+  return Number.isFinite(value) ? +value.toFixed(4) : 0
+}
+
 /** 坐标数值 */
 function num(value: number) {
   const ticks = Math.round(Math.abs(value) * 10000) // 先回到 4 位小数的整数刻度
@@ -131,7 +196,7 @@ const itemIcons = computed<IconCategories>(() => {
 })
 
 /** 有没有改过 */
-const dirty = computed(() => Object.keys(staged).length > 0)
+const dirty = computed(() => Object.keys(staged).length > 0 || coordOffsetDirty.value)
 
 /** 「星际 → 行星内」要丢弃的物品栏位（1-5） */
 const dropSlot = ref(5)
@@ -141,7 +206,7 @@ const paramHint = ref('')
 
 /** 这栋连在一起的研究站有几个；不是研究站给 0。 */
 const labCount = computed(() => (isLab(selectedBuilding.value?.itemId)
-  ? linkedLabBuildings(Number(selectedBuilding.value?.index)).length
+  ? labStackCount(Number(selectedBuilding.value?.index))
   : 0))
 
 /** 分拣器两端连接：inputObjIdx / outputObjIdx 指向的建筑 */
@@ -164,6 +229,7 @@ const inserterConnection = computed(() => {
 /** 清空暂存 */
 function resetStaged() {
   for (const key of Object.keys(staged)) delete staged[key]
+  resetCoordOffset()
 }
 
 /** 保存: 把改过的项交出 */
@@ -171,11 +237,21 @@ function onSave() {
   const building = selectedBuilding.value
   if (!building || !dirty.value) return
 
-  // 研究站按「整栋」保存: 连同相连的那些一起改
-  const lab = isLab(building.itemId)
-  const ok = lab
-    ? editLabGroup(Number(building.index), { ...staged })
-    : editBuilding(Number(building.index), { ...staged })
+  const changes: BuildingChanges = { ...staged }
+  if (experimentalFeatures && coordOffsetDirty.value && Array.isArray(building.localOffset)) {
+    const points = building.localOffset as Array<{ x: number, y: number, z: number }>
+    const inserter = isInserter(building.itemId)
+    changes.localOffset = points.map((item, i) => {
+      const delta = inserter ? (coordOffset[i] ?? coordOffset[0]) : coordOffset[0]
+      return {
+        x: round4(item.x + delta.x),
+        y: round4(item.y + delta.y),
+        z: round4(item.z + delta.z),
+      }
+    })
+  }
+
+  const ok = updateBuilding(Number(building.index), changes)
   // 保存成功就清空暂存
   if (ok) resetStaged()
   show(ok ? '已保存该建筑的修改' : '保存失败：没找到该建筑')
@@ -199,7 +275,7 @@ function onDeleteBuilding() {
 function onReverseInserter() {
   const building = selectedBuilding.value
   if (!building) return
-  const ok = reverseInserter(Number(building.index))
+  const ok = flipInserter(Number(building.index))
   show(ok ? '已反转分拣器' : '反转失败：没找到该分拣器')
 }
 
@@ -250,7 +326,7 @@ watch(() => selectedBuilding.value?.index, () => {
         class="btn-sm"
         type="button"
         :title="dirty?'同时保存当前修改':''"
-        @click="onSave(), editStationType(selectedBuilding.index, dropSlot)"
+        @click="onSave(), convertStationType(selectedBuilding.index, dropSlot)"
       >{{ selectedBuilding.itemId === 2103 ? '替换为星际' : "替换为本地" }}</button>
       <template v-if="selectedBuilding.itemId === 2104">
         <span class="factory-selection-label">丢弃槽位:</span>
@@ -439,6 +515,50 @@ watch(() => selectedBuilding.value?.index, () => {
       :readonly="true"
     />
 
+    <!-- 调整传送带和分拣器的坐标 -->
+    <template v-if="experimentalFeatures && canAdjustCoord">
+      <div class="factory-selection-divider" />
+      <div class="factory-selection-params">
+        <div class="factory-selection-row factory-selection-param">
+          <span
+            class="factory-selection-label"
+            title="增量会加到蓝图里这栋建筑的 localOffset 上，点「保存修改」才写回"
+          >调整坐标</span>
+          <span class="factory-coord-offset-unit">偏移量</span>
+          <button
+            class="btn-sm btn-ghost factory-coord-offset-reset"
+            type="button"
+            :disabled="!coordOffsetDirty"
+            @click="resetCoordOffset"
+          >归零</button>
+        </div>
+        <div
+          v-for="row in coordOffsetRows"
+          :key="row.label"
+          class="factory-selection-row factory-selection-param factory-coord-offset-row"
+        >
+          <span class="factory-selection-label">{{ row.label }}</span>
+          <label
+            v-for="axis in COORD_AXES"
+            :key="axis.key"
+            class="factory-coord-offset-field"
+          >
+            <span>{{ axis.label + ':' +row.values[axis.key]}}</span>
+            <span>+</span>
+            <form novalidate><input
+              class="factory-coord-offset-input"
+              type="number"
+              step="0.25"
+              :value="coordOffset[row.index][axis.key]"
+              @change="onCoordOffsetChange(row.index, axis.key, $event)"
+            /></form>
+          </label>
+        </div>
+      </div>
+    </template>
+
+    <div class="factory-selection-divider" />
+
     <!-- 编辑: 有改动才可点 -->
     <div class="factory-selection-actions">
       <button
@@ -602,6 +722,50 @@ watch(() => selectedBuilding.value?.index, () => {
 .factory-inserter-reverse {
   flex-shrink: 0;
   margin-left: 2px;
+}
+
+.factory-coord-offset-unit {
+  font-size: 12px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.factory-coord-offset-reset {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.factory-coord-offset-row {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.factory-coord-offset-field {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.factory-coord-offset-input {
+  width: 60px;
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.factory-coord-offset-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .factory-selection-actions {

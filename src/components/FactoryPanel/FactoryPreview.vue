@@ -16,7 +16,7 @@ let preview: FactoryPreview | null = null
 const showGrid = ref(true)
 
 /**
- * 状态行里的一排显示层开关（key 就是 factory/preview/FactoryPreview.js 的层名）
+ * 画布底部那一排显示层开关（key 就是 factory/preview/FactoryPreview.js 的层名）
  */
 const layerState = reactive({ buildings: true, belts: true, inserters: true, icons: true })
 const layerKeys = ['buildings', 'belts', 'inserters', 'icons'] as const
@@ -62,6 +62,34 @@ function commitLatValue() {
   preview?.setTargetLatitude(currentTarget(), targetNorth.value === 'N')
 }
 
+/** 操作提示浮窗（? 按钮）: 开关与浮窗元素（点外面 / Esc 关掉要用） */
+const tipsOpen = ref(false)
+const tipsEl = ref<HTMLElement | null>(null)
+const tipsBtnEl = ref<HTMLButtonElement | null>(null)
+
+/** ? 按钮弹出的操作提示: [操作, 按键 / 手势] */
+const TIPS = [
+  { action: '平移', keys: '左键拖动 / WASD / 单指拖动' },
+  { action: '旋转', keys: '中键左右拖动 / QE / 双指旋转' },
+  { action: '俯仰', keys: '中键上下拖动 / RF / 双指上下拖动' },
+  { action: '缩放', keys: '滚轮 / ZX / 双指捏合' },
+  { action: '对准蓝图', keys: 'C / 右上角按钮' },
+  { action: '选中建筑', keys: '左键点击 / 单指长按 / 选中空白=取消选中' },
+]
+
+/** 点浮窗与 ? 按钮以外的地方关掉浮窗 */
+function closeTipsOnOutside(event: PointerEvent) {
+  if (!tipsOpen.value) return
+  const target = event.target as Node
+  if (tipsEl.value?.contains(target) || tipsBtnEl.value?.contains(target)) return
+  tipsOpen.value = false
+}
+
+/** Esc 关掉浮窗 */
+function closeTipsOnEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape') tipsOpen.value = false
+}
+
 onMounted(() => {
   if (!canvasEl.value) return
   preview = new FactoryPreview()
@@ -71,9 +99,14 @@ onMounted(() => {
   for (const key of layerKeys) preview.setLayerVisible(key, layerState[key])
   preview.setTargetLatitude(currentTarget(), targetNorth.value === 'N')
   attachPreview(preview)
+
+  document.addEventListener('pointerdown', closeTipsOnOutside)
+  window.addEventListener('keydown', closeTipsOnEscape)
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', closeTipsOnOutside)
+  window.removeEventListener('keydown', closeTipsOnEscape)
   attachPreview(null)
   preview?.dispose()
   preview = null
@@ -92,54 +125,87 @@ function onResetView() {
 </script>
 
 <template>
-  <h2>蓝图预览</h2>
-
   <div class="factory-preview">
     <div class="factory-preview-stage">
       <!-- draggable=false: 左键拖动挪观察点，别让浏览器把画布当成可拖拽的图片 -->
       <canvas ref="canvasEl" draggable="false"></canvas>
 
-      <div class="factory-preview-hint">左键 / WASD 移动视角，中键转动视角</div>
-
-      <div class="factory-preview-tools">
-        <button class="btn-sm btn-ghost" type="button" @click="onResetView">复位视角</button>
-      </div>
-    </div>
-
-    <div class="factory-preview-status">
-      <label class="factory-preview-check">
-        <input v-model="showGrid" type="checkbox" /> 显示网格线
-      </label>
-      <label class="factory-preview-check">
-        目标纬度
-        <select v-model="targetNorth" class="factory-preview-select">
-          <option value="N">北</option>
-          <option value="S">南</option>
-        </select>
-        <input
-          v-model.number="targetLatValue"
-          class="factory-preview-lat"
-          type="number"
-          min="0"
-          max="90"
-          step="1"
-          @change="commitLatValue"
-          @keyup.enter="commitLatValue"
-        />
-        <span class="factory-preview-unit">°</span>
-      </label>
-
-      <div class="factory-preview-layers">
+      <div class="factory-preview-top">
         <button
-          v-for="key in layerKeys"
-          :key="key"
-          class="btn-sm btn-ghost factory-layer-btn"
-          :class="{ active: layerOn(key) }"
+          class="btn-sm btn-ghost factory-preview-reset"
           type="button"
-          @click="toggleLayer(key)"
+          @click="onResetView"
         >
-          {{ LAYER_LABELS[key].text }}
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.3" />
+            <path class="factory-reset-needle" d="M11.32 4.68 9.1 9.1 6.9 6.9Z" />
+            <path d="M11.32 4.68 9.1 9.1 4.68 11.32 6.9 6.9Z" />
+          </svg>
         </button>
+      </div>
+
+      <div class="factory-preview-bar">
+        <div class="factory-preview-layers">
+          <button
+            v-for="key in layerKeys"
+            :key="key"
+            class="btn-sm btn-ghost factory-layer-btn"
+            :class="{ active: layerOn(key) }"
+            type="button"
+            @click="toggleLayer(key)"
+          >
+            {{ LAYER_LABELS[key].text }}
+          </button>
+        </div>
+
+        <div class="factory-preview-tools">
+          <div class="factory-preview-fields">
+            <label class="factory-preview-check">
+              <input v-model="showGrid" type="checkbox" /> 显示网格
+            </label>
+            <label class="factory-preview-check">
+              目标纬度
+              <select v-model="targetNorth" class="factory-preview-select">
+                <option value="N">北</option>
+                <option value="S">南</option>
+              </select>
+              <input
+                v-model.number="targetLatValue"
+                class="factory-preview-lat"
+                type="number"
+                min="0"
+                max="90"
+                step="1"
+                @change="commitLatValue"
+                @keyup.enter="commitLatValue"
+              />
+              <span class="factory-preview-unit">°</span>
+            </label>
+          </div>
+
+          <div class="factory-preview-help-wrap">
+            <button
+              ref="tipsBtnEl"
+              class="factory-preview-help"
+              :class="{ active: tipsOpen }"
+              type="button"
+              @click="tipsOpen = !tipsOpen"
+            >?</button>
+          </div>
+
+          <div v-if="tipsOpen" ref="tipsEl" class="factory-preview-tips">
+            <div class="factory-preview-tips-head">
+              <span>操作</span>
+              <button class="factory-preview-tips-close" type="button" @click="tipsOpen = false">✕</button>
+            </div>
+            <dl class="factory-preview-tips-list">
+              <template v-for="tip in TIPS" :key="tip.action">
+                <dt>{{ tip.action }}</dt>
+                <dd>{{ tip.keys }}</dd>
+              </template>
+            </dl>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -174,58 +240,107 @@ function onResetView() {
   -webkit-user-select: none;
 }
 
-/* 画布左下角。pointer-events: none 让左键拖动不会点在提示上 */
-.factory-preview-hint {
+/* 画布顶部一行: 复位视角靠右 */
+.factory-preview-top {
   position: absolute;
-  left: 10px;
-  bottom: 10px;
-  max-width: calc(100% - 20px);
-  padding: 2px 0;
-  color: var(--fg-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  justify-content: flex-end;
   z-index: 2;
+  pointer-events: none;
 }
 
-/* 复位视角: 舞台右下角 */
-.factory-preview-tools {
+/* 复位视角: 顶部一行最右 */
+.factory-preview-reset {
+  flex-shrink: 0;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: color-mix(in srgb, var(--bg-panel) 60%, transparent);
+}
+
+.factory-preview-reset:hover {
+  background: color-mix(in srgb, var(--bg-panel) 80%, transparent);
+}
+
+/* 指南针图标 */
+.factory-preview-reset svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.05;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.factory-preview-reset .factory-reset-needle {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* 画布底部一行 */
+.factory-preview-bar {
   position: absolute;
+  left: 10px;
   right: 10px;
   bottom: 10px;
   display: flex;
-  gap: 4px;
-  z-index: 2;
-}
-
-/* 状态行: 状态标签 + 网格线开关 + 目标纬度 + 显示层开关 */
-.factory-preview-status {
-  display: flex;
+  flex-direction: row-reverse;
+  justify-content: space-between;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
   font-size: 11px;
-  flex-shrink: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* 底栏左侧一组: 半透明底板 + 底板上外面的 ? */
+.factory-preview-tools {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  pointer-events: none;
+}
+
+/* 左边两个开关共用一条半透明底 */
+.factory-preview-fields {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--bg-panel) 60%, transparent);
+  pointer-events: auto;
 }
 
 .factory-preview-check {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 4px;
-  padding-left: 8px;
-  border-left: 1px solid var(--line);
   font-size: 12px;
   color: var(--fg-secondary);
   white-space: nowrap;
   cursor: pointer;
+  pointer-events: auto;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
 }
 
-/* 目标纬度下拉: 跟状态栏同一套深色描边 */
+.factory-preview-check + .factory-preview-check {
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
+}
+
+/* 目标纬度下拉 */
 .factory-preview-select {
   padding: 1px 4px;
   border-radius: var(--radius-xs);
@@ -243,7 +358,7 @@ function onResetView() {
 }
 
 .factory-preview-lat {
-  width: 44px;
+  width: 36px;
   padding: 1px 4px;
   border-radius: var(--radius-xs);
   background: var(--bg-secondary);
@@ -271,11 +386,100 @@ function onResetView() {
   color: var(--fg-muted);
 }
 
-/* 显示层开关: 推到状态行最右，与「目标纬度」同一行 */
+/* ? 按钮: 圆环，亮起 = 浮窗开着 */
+.factory-preview-help-wrap {
+  display: inline-flex;
+  pointer-events: auto;
+}
+
+.factory-preview-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg-panel) 60%, transparent);
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.factory-preview-help:hover,
+.factory-preview-help.active {
+  color: var(--fg);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--bg-panel) 80%, transparent);
+}
+
+/* 操作提示浮窗: 左边缘对齐整组（底板左侧），贴在底栏上方 */
+.factory-preview-tips {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 3;
+  min-width: 232px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg-panel) 60%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: var(--fg-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  pointer-events: auto;
+}
+
+.factory-preview-tips-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--fg);
+}
+
+.factory-preview-tips-close {
+  padding: 0 2px;
+  border: none;
+  background: none;
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.factory-preview-tips-close:hover {
+  color: var(--fg);
+}
+
+.factory-preview-tips-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 10px;
+  row-gap: 4px;
+  margin: 6px 0 0;
+}
+
+.factory-preview-tips-list dt {
+  color: var(--fg-accent);
+  white-space: nowrap;
+}
+
+.factory-preview-tips-list dd {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* 显示层开关 */
 .factory-preview-layers {
   display: flex;
   gap: 4px;
-  margin-left: auto;   /* 推到状态行最右，与「目标纬度」同一行 */
+  pointer-events: auto;
 }
 
 .factory-layer-btn {

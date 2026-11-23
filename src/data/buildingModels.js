@@ -27,71 +27,6 @@ const LOGISTIC_STATION_BOX = [
 const BELT_BOX = [{ center: [0, 0, 0], ext: [0.28, 0.15, 0.28] }];
 const INSERTER_BOX = [{ center: [0, 0, 0], ext: [0.26, 0.15, 0.115] }];
 
-/** itemId → 模型id 列表 */
-export const ITEM_MODEL = {
-  2001: [35],
-  2002: [36],
-  2003: [37],
-  2011: [41],
-  2012: [42],
-  2013: [43],
-  2014: [483],
-  2020: [38, 39, 40],
-  2030: [208],
-  2040: [257],
-  2101: [51],
-  2102: [52],
-  2103: [49],
-  2104: [50],
-  2106: [121],
-  2107: [371],
-  2201: [44],
-  2202: [71],
-  2203: [53],
-  2204: [54],
-  2205: [55],
-  2206: [46],
-  2207: [46],
-  2208: [73],
-  2209: [45],
-  2210: [56],
-  2211: [118],
-  2212: [68],
-  2213: [255],
-  2301: [57],
-  2302: [62],
-  2303: [65],
-  2304: [66],
-  2305: [67],
-  2306: [60],
-  2307: [61],
-  2308: [63],
-  2309: [64],
-  2310: [69],
-  2311: [72],
-  2312: [74],
-  2313: [120],
-  2314: [119],
-  2315: [194],
-  2316: [256],
-  2317: [376],
-  2318: [456],
-  2319: [457],
-  2401: [664],
-  2901: [70],
-  2902: [455],
-  3001: [374],
-  3002: [373],
-  3003: [375],
-  3004: [408],
-  3005: [407],
-  3006: [422],
-  3007: [403],
-  3008: [402],
-  3009: [453],
-  3010: [482],
-};
-
 /** 建筑方块的默认色 */
 export const BUILDING_COLOR = 0xE5E5E5;
 
@@ -105,7 +40,7 @@ export const BUILDING_MODELS = {
   42: { colliders: INSERTER_BOX, color: 0x1EF3AB }, // 高速分拣器
   43: { colliders: INSERTER_BOX, color: 0x3EA3F0 }, // 极速分拣器
   483: { colliders: INSERTER_BOX, color: 0xFFFFFF }, // 集装分拣器
-  49: { colliders: LOGISTIC_STATION_BOX, color: 0x626566 }, // 行星内物流运输站
+  49: { colliders: LOGISTIC_STATION_BOX, color: 0xA3A5A5 }, // 行星内物流运输站
   50: { colliders: LOGISTIC_STATION_BOX, color: 0x626566 }, // 星际物流运输站
   51: { colliders: [{ center: [0, 1.3, 0], ext: [1.5, 1.2, 1.5] }], color: null }, // 小型储物仓
   52: { colliders: [{ center: [0, 1.8, 0], ext: [2.925, 1.95, 1.95] }], color: null }, // 大型储物仓
@@ -306,6 +241,72 @@ export const BUILDING_MODELS = {
   },
 };
 
+/** itemId → 模型id 列表 */
+export const ITEM_MODEL = {
+  2001: [35],
+  2002: [36],
+  2003: [37],
+  2011: [41],
+  2012: [42],
+  2013: [43],
+  2014: [483],
+  2020: [38, 39, 40],
+  2030: [208],
+  2040: [257],
+  2101: [51],
+  2102: [52],
+  2103: [49],
+  2104: [50],
+  2105: [117],
+  2106: [121],
+  2107: [371],
+  2201: [44],
+  2202: [71],
+  2203: [53],
+  2204: [54],
+  2205: [55],
+  2206: [46],
+  2207: [46],
+  2208: [73],
+  2209: [45],
+  2210: [56],
+  2211: [118],
+  2212: [68],
+  2213: [255],
+  2301: [57],
+  2302: [62],
+  2303: [65],
+  2304: [66],
+  2305: [67],
+  2306: [60],
+  2307: [61],
+  2308: [63],
+  2309: [64],
+  2310: [69],
+  2311: [72],
+  2312: [74],
+  2313: [120],
+  2314: [119],
+  2315: [194],
+  2316: [256],
+  2317: [376],
+  2318: [456],
+  2319: [457],
+  2401: [664],
+  2901: [70],
+  2902: [455],
+  3001: [374],
+  3002: [373],
+  3003: [375],
+  3004: [408],
+  3005: [407],
+  3006: [422],
+  3007: [403],
+  3008: [402],
+  3009: [453],
+  3010: [482],
+};
+
 // ─── 传送带连接 / 分拣器的外形参数 ───────────────────────────────
 /**
  * 分拣器（2011~2014）的基本尺寸（手调，与 INSERTER_BOX 那套碰撞箱无关），单位 = 游戏世界单位。
@@ -316,17 +317,20 @@ export const INSERTER_MODEL = {
   barLength: 0.6,       // 横梁长（沿本地 +X）
   barHeight: 0.09,      // 横梁高（坐在立柱顶上）
   armWidth: 0.06,       // 爪臂截面边长（方柱）
+  rodWidth: 0.12,       // 横梁朝爪臂那面伸出的棒子: 截面宽（X）；高恒等于横梁高 barHeight、配色同横梁
+  rodLength: 0.3,       // 棒子沿爪臂方向的长度（从横梁中心量起，露在横梁外侧的 = rodLength − legWidth/2）
   gateOffset: 0.4,      // 门架（传送带端）沿爪臂方向外移的距离；建筑端长方体不移动
   blockLength: 0.82,    // 建筑端长方体的长（宽 = 横梁长、高 = 门架总高 legHeight + barHeight）
-  frameColor: 0xd6dbe2, // 立柱与爪臂（游戏里灰白；横梁与长方体用分拣器自己的配色，见 BUILDING_MODELS）
+  frameColor: 0xd6dbe2, // 立柱与爪臂（游戏里灰白；横梁、长方体、棒子用分拣器自己的配色，见 BUILDING_MODELS）
 };
 
 // 下面几个由基本尺寸推出来，只在这里算一次（渲染层直接取组件表）
 const {
-  legWidth, legHeight, barLength, barHeight, armWidth, blockLength,
+  legWidth, legHeight, barLength, barHeight, armWidth, rodWidth, rodLength, blockLength,
 } = INSERTER_MODEL;
 const BLOCK_HEIGHT = legHeight + barHeight;                    // 建筑端长方体高 = 门架总高
 const ARM_HEIGHT = legHeight + barHeight * 0.5;                // 爪臂挂点 = 横梁中心高度
+const ROD_HEIGHT = barHeight;                                 // 棒子高 = 横梁高
 const LEG_OFFSET_X = (barLength - legWidth) * 0.5;             // 立柱中心相对门架中心
 
 /**
@@ -334,19 +338,21 @@ const LEG_OFFSET_X = (barLength - legWidth) * 0.5;             // 立柱中心�
  * 本地坐标系（原点 = 该端落点）: +X = 横梁方向、+Y = 该端模型的「上」、+Z = 该端模型前向。
  *   position 块心相对落点的偏移 [X, Y, Z]（上面那个本地坐标系）
  *   size     整块尺寸 [宽(X), 高(Y), 长(Z)]，都是长方体
- *   role     'frame' = 灰白骨架（立柱、爪臂）、'body' = 用分拣器自己的配色（横梁、长方体）
+ *   role     'frame' = 灰白骨架（立柱、爪臂）、'body' = 用分拣器自己的配色（横梁、长方体、棒子）
  *   hinge    爪臂挂点（本地坐标），爪臂连两端挂点，长度与朝向由渲染层现算
  *   inward   true = 这一端朝爪臂那一侧摆（本端 +Z 朝外时渲染层翻本地 Z; 长方体对称，翻 Z 等价于转 180°）
  */
 export const INSERTER_PARTS = {
-  /** 传送带端（门架）: 两根立柱 + 顶端横梁 */
+  /** 传送带端（门架）: 两根立柱 + 顶端横梁 + 横梁朝爪臂那面伸出的一根棒子 */
   gate: {
+    inward: true,
     parts: [
       { name: 'leg', role: 'frame', position: [-LEG_OFFSET_X, legHeight * 0.5, 0], size: [legWidth, legHeight, legWidth] },
       { name: 'leg', role: 'frame', position: [LEG_OFFSET_X, legHeight * 0.5, 0], size: [legWidth, legHeight, legWidth] },
       { name: 'bar', role: 'body', position: [0, legHeight + barHeight * 0.5, 0], size: [barLength, barHeight, legWidth] },
+      { name: 'rod', role: 'body', position: [0, ARM_HEIGHT, rodLength * 0.5], size: [rodWidth, ROD_HEIGHT, rodLength] },
     ],
-    hinge: [0, ARM_HEIGHT, 0],                       // 横梁中心
+    hinge: [0, ARM_HEIGHT, rodLength],               // 棒子头
   },
   /** 建筑端: 与门架等宽等高的长方体，沿本地 +Z 长 blockLength（往内侧长，见 inward） */
   block: {

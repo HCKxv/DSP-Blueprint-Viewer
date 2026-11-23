@@ -2,7 +2,7 @@
  * cameraRig — 工厂预览的相机与操作（**贴地表面行走**那一套）
  *
  * 观察点在球面上走、相机始终盯住它，`camera.up` = 观察点当地法线。
- * 操作: 左键拖动 / W/A/S/D 挪观察点、 中键拖动绕当地竖轴转台、滚轮改取景距离（观察点不动，但仰角下限是距离的函数，缩放后必须重夹，见 tick）；
+ * 操作: 左键拖动 / W/A/S/D 挪观察点、 Q/E 绕当地竖轴转视角、 R/F 俯仰、 中键拖动转视角、 滚轮 / Z/X 改取景距离（观察点不动，但仰角下限是距离的函数，缩放后必须重夹，见 tick）；
  * 触屏**单指拖动**挪观察点、单指**长按**选中建筑（到点立刻回调，不等抬手，见 setLongPressListener）、**双指捏合**缩放 + **双指扭动**绕当地竖轴转视角 + **双指上下**挪仰角（三个手势可以同时生效，见 _beginTwoFingerGesture / _pinchByDistance / _twistByAngle / _pitchByPixels）。
  * OrbitControls 只留滚轮缩放与阻尼 —— 另外两个预览是「绕球心转」，与这里不共用。
  *
@@ -31,7 +31,7 @@ const HOME_ELEVATION_RAD = 60 * DEG;
 const CAMERA_MIN_ALTITUDE = 0.01;
 
 /** 相机相对观察点当地地平面的仰角上限: 别正对法线（那时屏幕上下方向会退化） */
-const MAX_CAMERA_ELEVATION_RAD = 75 * DEG;
+const MAX_CAMERA_ELEVATION_RAD = 85 * DEG;
 
 /** 仰角下限随取景距离变: 最远时 = MAX_MIN_CAMERA_ELEVATION_RAD，贴地时回升到 MIN_CAMERA_ELEVATION_RAD */
 const MIN_CAMERA_ELEVATION_RAD = 18 * DEG;
@@ -70,6 +70,24 @@ const KEY_PAN_VECTORS = {
 /** W/A/S/D 的速度: 每秒走 20 格 */
 const KEY_PAN_CELLS_PER_SECOND = 20;
 const KEY_PAN_SPEED = KEY_PAN_CELLS_PER_SECOND * CELL_SCENE;
+
+/** Q/E 转视角: 键位 → 绕当地竖轴的方向（E 同中键往左拖 = 视角左转，画面内容往右走），见 _turnByKeys */
+const KEY_TURN_VECTORS = { KeyQ: -1, KeyE: 1 };
+
+/** Q/E 的转速: 每秒 90° */
+const KEY_TURN_RAD_PER_SECOND = Math.PI / 2;
+
+/** Z/X 缩放: 键位 → 距离倍率的方向（Z 拉近、X 推远），见 _zoomByKeys */
+const KEY_ZOOM_DIRECTIONS = { KeyZ: 1, KeyX: -1 };
+
+/** Z/X 的缩放速度: 每秒距离变 2 倍 */
+const KEY_ZOOM_RATE_PER_SECOND = 2;
+
+/** R/F 俯仰: 键位 → 仰角方向（+1 抬高、−1 压低），见 _pitchByKeys */
+const KEY_PITCH_DIRECTIONS = { KeyR: 1, KeyF: -1 };
+
+/** R/F 的俯仰速度: 每秒 60° */
+const KEY_PITCH_RAD_PER_SECOND = Math.PI / 3;
 
 /** 取景填充率: 蓝图大致占视野的 2/3；半径下限（度）挡住太小的蓝图，免得把相机怼到地面上 */
 const FOCUS_FILL = 0.66;
@@ -210,8 +228,8 @@ class CameraRig {
     this._twistAngle = 0;
     this._touchPitchY = 0;
 
-    /** 按住的方向键（W/A/S/D，由调用方维护后交给 setMoveKeys） */
-    this._moveKeys = null;
+    /** 按住的控制键（W/A/S/D 挪观察点、Q/E 转视角、R/F 俯仰、Z/X 缩放，由调用方维护后交给 setHeldKeys） */
+    this._heldKeys = null;
   }
 
   // ─── 初始化 ─────────────────────────────────────────────────
@@ -344,6 +362,17 @@ class CameraRig {
   }
 
   /**
+   * 把一帧的俯仰转角先夹进允许区间再转: 转 `a` 后仰角 = e − a，越过 90° 会被 `_elevationOf`
+   * 折回另一侧（数值仍合法、夹不住）而切向反号，画面上下翻转。快速拖动一帧就能转 20°~100°，事后夹来不及。
+   */
+  _clampPitchAngle(angleRad, elevationRad, distance) {
+    // a ∈ [e − 仰角上限, e − 仰角下限]
+    const lowest = elevationRad - MAX_CAMERA_ELEVATION_RAD;
+    const highest = elevationRad - minElevationForDistance(distance);
+    return Math.min(highest, Math.max(lowest, angleRad));
+  }
+
+  /**
    * 按当前距离重夹仰角 —— 缩放只改距离、不改仰角，下限却是距离的函数，
    * 所以滚轮之后必须重夹（否则拉远后相机一直贴在旧的低仰角上看）。
    */
@@ -371,13 +400,16 @@ class CameraRig {
 
   // ─── 渲染循环 ───────────────────────────────────────────────
   /**
-   * 每帧调一次（渲染循环里），把 W/A/S/D、阻尼与仰角限位都推进一步。
+   * 每帧调一次（渲染循环里），把 W/A/S/D、Q/E、R/F、Z/X、阻尼与仰角限位都推进一步。
    * @param {number} dt 距上一帧的秒数（<= 0 = 不按帧长走）
    * @returns {boolean} 这一帧视角是否动过 —— false 时调用方可以跳过绘制（省电）
    */
   tick(dt) {
     if (!this._camera || !this._controls) return false;
     this._moveByKeys(dt);
+    this._turnByKeys(dt);
+    this._pitchByKeys(dt);
+    this._zoomByKeys(dt);
     // 缩放 / 阻尼都在这里生效；OrbitControls 只在真的变了时才返回 true 并派发 change
     if (this._controls.update()) this._dirty = true;
     this._clampCameraElevation();
@@ -673,14 +705,15 @@ class CameraRig {
     this._pressMoved = false;
   }
 
-  /** 交进当前按住的方向键（W/A/S/D 的 `event.code`）: 直接持有这个 Set，调用方不必每帧新建 */
-  setMoveKeys(keys) {
-    this._moveKeys = keys ?? null;
+  /** 交进当前按住的控制键（W/A/S/D/Q/E/R/F/Z/X 的 `event.code`）: 直接持有这个 Set，调用方不必每帧新建 */
+  setHeldKeys(keys) {
+    this._heldKeys = keys ?? null;
   }
 
-  /** 这个键位算不算「挪观察点」的键 */
-  isMoveKey(code) {
-    return !!KEY_PAN_VECTORS[code];
+  /** 这个键位归预览按住（W/A/S/D 挪观察点、Q/E 转视角、R/F 俯仰、Z/X 缩放） */
+  isHeldKey(code) {
+    return !!(KEY_PAN_VECTORS[code] || KEY_TURN_VECTORS[code]
+      || KEY_PITCH_DIRECTIONS[code] || KEY_ZOOM_DIRECTIONS[code]);
   }
 
   /**
@@ -688,10 +721,10 @@ class CameraRig {
    * 像素链会把「一像素对应地上多远」算进去，速度就随仰角 / 取景距离 / 光标位置漂。
    */
   _moveByKeys(dt) {
-    if (!this._moveKeys?.size || this._dragMode || !(dt > 0)) return;
+    if (!this._heldKeys?.size || this._dragMode || !(dt > 0)) return;
     let side = 0;
     let forward = 0;
-    for (const code of this._moveKeys) {
+    for (const code of this._heldKeys) {
       const vector = KEY_PAN_VECTORS[code];
       if (!vector) continue;
       side += vector[0];
@@ -701,6 +734,36 @@ class CameraRig {
     if (!length) return;
     // 斜向归一化: 两轴各按全速算时斜 45° 是 √2 倍速
     this._stepByArc((side / length) * KEY_PAN_SPEED * dt, (forward / length) * KEY_PAN_SPEED * dt);
+  }
+
+  /** 按住 Q/E 绕当地竖轴转视角（速度语义，同 _moveByKeys；观察点与仰角都不动） */
+  _turnByKeys(dt) {
+    if (!this._heldKeys?.size || this._dragMode || !(dt > 0)) return;
+    let direction = 0;
+    for (const code of this._heldKeys) direction += KEY_TURN_VECTORS[code] ?? 0;
+    if (!direction) return;
+    this._rotateByYaw(direction * KEY_TURN_RAD_PER_SECOND * dt);
+  }
+
+  /** 按住 R/F 俯仰（观察点、水平朝向、距离都不动，顶到俯仰上下限就停住） */
+  _pitchByKeys(dt) {
+    if (!this._heldKeys?.size || this._dragMode || !(dt > 0)) return;
+    let direction = 0;
+    for (const code of this._heldKeys) direction += KEY_PITCH_DIRECTIONS[code] ?? 0;
+    if (!direction) return;
+    // 抬高 = 转角取负（与中键往下拖同一个符号）
+    this._pitchByAngle(direction * KEY_PITCH_RAD_PER_SECOND * dt * DRAG_PITCH_SIGN);
+  }
+
+  /** 按住 Z/X 缩放（观察点不动，同滚轮；仰角按新距离重夹） */
+  _zoomByKeys(dt) {
+    if (!this._heldKeys?.size || this._dragMode || !(dt > 0)) return;
+    let direction = 0;
+    for (const code of this._heldKeys) direction += KEY_ZOOM_DIRECTIONS[code] ?? 0;
+    if (!direction) return;
+    // 距离按倍率逐帧增量地乘（拉近 = 越来越小），顶到远近限位就停住
+    const distance = this._camera.position.distanceTo(this._controls.target);
+    this._zoomTo(distance * Math.pow(KEY_ZOOM_RATE_PER_SECOND, -direction * dt));
   }
 
   /**
@@ -723,7 +786,7 @@ class CameraRig {
 
   /**
    * 绕观察点转视角（同游戏 PlanetPoser）: 竖直轴 = 观察点当地法线、水平轴 = 竖直轴 × 视线。
-   * 仰角最后夹到允许区间（下限随距离变）；贴着上/下限时水平分量照常生效，不会卡死。
+   * 俯仰先夹再转（见 _clampPitchAngle）；贴着上/下限时水平分量照常生效，不会卡死。
    */
   _rotateByPixels(dx, dy) {
     const target = this._controls.target;
@@ -734,11 +797,17 @@ class CameraRig {
 
     const scale = (Math.PI * 2 / (this._canvas?.clientHeight || 1))
       * rotationSpeedForDistance(offset.length());
+    // 先夹再转，免得越过天顶（见 _clampPitchAngle）
+    const pitchAngle = this._clampPitchAngle(
+      dy * scale * DRAG_PITCH_SIGN,
+      this._elevationOf(offset, normal),
+      offset.length(),
+    );
     const yaw = new THREE.Quaternion().setFromAxisAngle(vertical, dx * scale * DRAG_YAW_SIGN);
-    const pitch = new THREE.Quaternion().setFromAxisAngle(pitchAxis, dy * scale * DRAG_PITCH_SIGN);
+    const pitch = new THREE.Quaternion().setFromAxisAngle(pitchAxis, pitchAngle);
     const rotated = offset.clone().applyQuaternion(yaw.clone().multiply(pitch));
 
-    // 近处一帧能转好几度，仰角在这里夹进允许区间
+    // 兜底: 正常已被 _clampPitchAngle 夹住
     const clamped = this._clampElevation(this._elevationOf(rotated, normal), offset.length());
     this._placeCamera(target, rotated, clamped, offset.length());
   }
@@ -762,23 +831,32 @@ class CameraRig {
   }
 
   /**
-   * 只改仰角（观察点不动、水平朝向不动）: `_rotateByPixels` 的纯俯仰版，触屏双指上下直接用像素给。
-   * 方向与中键拖动同一个符号（向下拖 = 相机抬高，画面内容跟着手指往下走）；
-   * 仰角按当前距离夹进允许区间，顶到上 / 下限就停住。
+   * 只改仰角（观察点、水平朝向、距离都不动），触屏双指上下与 R/F 共用这条链。
+   * 转角先夹再转（见 _clampPitchAngle），顶到上 / 下限就停住。
    */
-  _pitchByPixels(dy) {
+  _pitchByAngle(pitchAngle) {
     const target = this._controls.target;
     const normal = target.clone().normalize();
     const offset = this._camera.position.clone().sub(target);
     const { pitchAxis } = this._rotationAxes(offset);
     if (!pitchAxis) return;
 
-    const scale = TOUCH_PITCH_PER_SCREEN_RAD / (this._canvas?.clientHeight || 1);
+    const clampedAngle = this._clampPitchAngle(
+      pitchAngle,
+      this._elevationOf(offset, normal),
+      offset.length(),
+    );
     const rotated = offset.clone().applyQuaternion(
-      new THREE.Quaternion().setFromAxisAngle(pitchAxis, dy * scale * DRAG_PITCH_SIGN),
+      new THREE.Quaternion().setFromAxisAngle(pitchAxis, clampedAngle),
     );
     const clamped = this._clampElevation(this._elevationOf(rotated, normal), offset.length());
     this._placeCamera(target, rotated, clamped, offset.length());
+  }
+
+  /** 触屏双指上下: 像素 → 俯仰转角（向下拖 = 相机抬高，画面内容跟着手指往下走） */
+  _pitchByPixels(dy) {
+    const scale = TOUCH_PITCH_PER_SCREEN_RAD / (this._canvas?.clientHeight || 1);
+    this._pitchByAngle(dy * scale * DRAG_PITCH_SIGN);
   }
 
   /**
@@ -963,7 +1041,7 @@ class CameraRig {
   }
 
   dispose() {
-    this._moveKeys = null;
+    this._heldKeys = null;
     this.endDrag();
     this._clicked = false;
     // 长按计时器必须清掉: 到点还会去调回调，而组件已经拆了

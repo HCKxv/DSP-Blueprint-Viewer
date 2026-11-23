@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUpdate, onMounted, ref } from 'vue'
-import { mountRichText, projectRichText } from '../../factory/ui/richTextDom'
-import { itemIconUrl } from '../../factory/ui/itemIcons'
+import { mountRichText, projectRichText } from '../../factory/richText/richTextDom'
+import { itemIconUrl } from '../../factory/icon/itemIcons'
 
 /**
  * 富文本的只读渲染: 和编辑框共用同一套显示层，所以两处显示只可能一样

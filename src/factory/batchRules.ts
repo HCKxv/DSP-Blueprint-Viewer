@@ -2,13 +2,12 @@
  * 批量编辑: 规则模型、规则类型表、图标选择器类型表
  */
 import type { FactoryBlueprint } from '../blueprint/factory/factoryTypes'
-import { batchUp, changeRectType, editAutoOrbit, editFilter, editRecipe, editStationItems } from './batchEdit.js'
-import { recipeName, recipeType } from './data/factoryRecipes.js'
+import { batchUp, changeRectType, editAutoOrbit, editFilter, editRecipe, editStationItems, horizontalOffset, verticalOffset } from './blueprintEdit.js'
+import { recipeData } from '../data/factoryRecipes.js'
 import { itemName } from '../blueprint/factory/factoryItems.js'
-import { ICON_CATEGORIES } from './ui/iconCatalog'
-import { itemIconUrl } from './ui/itemIcons'
-import type { IconCategories, IconRef } from './ui/itemIcons'
-import { recipeCategoriesAll, recipeCategoriesOfType } from './ui/recipeCatalog'
+import { ICON_CATEGORIES, recipeCategoriesAll, recipeCategoriesOfType } from './icon/iconCatalog'
+import { itemIconUrl } from './icon/itemIcons'
+import type { IconCategories, IconRef } from './icon/iconCatalog'
 
 /* ── 规则模型 ─────────────────────────────────────────────── */
 
@@ -20,7 +19,7 @@ export interface BatchRuleSelectItem {
   label: string
 }
 
-/** 批量编辑规则的一个选项: 替换（两格图标）/ 下拉 */
+/** 批量编辑规则的一个选项: 替换（两格图标）/ 下拉 / 数字输入框 */
 export type BatchRuleOption =
   | {
       kind: 'replace'
@@ -36,9 +35,21 @@ export type BatchRuleOption =
       /** 下拉项 */
       items: BatchRuleSelectItem[]
     }
+  | {
+      kind: 'number'
+      /** 要改 rule.values 的哪个字段 */
+      field: string
+      /** 输入框前面的说明 */
+      label?: string
+      /** 输入框后面的单位（如 层） */
+      unit?: string
+    }
 
 /** 规则行里的下拉选项 */
 export type BatchRuleSelect = Extract<BatchRuleOption, { kind: 'select' }>
+
+/** 规则行里的数字输入框选项 */
+export type BatchRuleNumber = Extract<BatchRuleOption, { kind: 'number' }>
 
 /** 一条批量编辑规则 */
 export interface BatchRule {
@@ -47,7 +58,7 @@ export interface BatchRule {
   options: BatchRuleOption[]
   /** 规则的可编辑值 */
   values: Record<string, any>
-  run: (blueprint: FactoryBlueprint) => boolean
+  run: (blueprint: FactoryBlueprint) => any
 }
 
 /** 一条规则类型: 记录选项、生成初始值、把规则作用到蓝图 */
@@ -57,12 +68,12 @@ export interface BatchRuleType {
   label: string
   /** 规则行里的补充说明（一个选项都没有时显示） */
   hint?: string
-  /** 选项: 替换 / 下拉，按顺序画 */
+  /** 选项: 替换 / 下拉 / 数字，按顺序画 */
   options: BatchRuleOption[]
   /** 新规则的初始值 */
   values: () => Record<string, any>
   /** 把规则作用到蓝图上 */
-  run: (blueprint: FactoryBlueprint, values: Record<string, any>) => boolean
+  run: (blueprint: FactoryBlueprint, values: Record<string, any>) => any
 }
 
 /**
@@ -72,10 +83,14 @@ export interface BatchRuleType {
  */
 export function createRule(type: BatchRuleType): BatchRule {
   const values = type.values()
-  // 下拉没给初始值时用第一项兜底，保证显示的和规则真正用的是同一个值
+  // 下拉没给初始值时用第一项兜底，数字没给初始值时按 0 兜底，
+  // 保证显示的和规则真正用的是同一个值
   for (const option of type.options) {
     if (option.kind === 'select' && values[option.field] === undefined) {
       values[option.field] = option.items[0]?.value
+    }
+    if (option.kind === 'number' && values[option.field] === undefined) {
+      values[option.field] = 0
     }
   }
   return {
@@ -95,7 +110,7 @@ export const BATCH_RULE_TYPES: BatchRuleType[] = [
     label: '升降级建筑',
     options: [{ kind: 'replace', typeId: 'upgrade' }],
     values: () => ({ from: 0, to: 0 }),
-    run: batchUp,
+    run: (blueprint, values) => batchUp(blueprint, values.from, values.to),
   },
   {
     id: 'recipe',
@@ -114,14 +129,14 @@ export const BATCH_RULE_TYPES: BatchRuleType[] = [
       },
     ],
     values: () => ({ from: 0, to: 0, acceleratorMode: -1 }),
-    run: editRecipe,
+    run: (blueprint, values) => editRecipe(blueprint, values.from, values.to, values.acceleratorMode),
   },
   {
     id: 'stationItem',
     label: '替换物流塔物品',
     options: [{ kind: 'replace', typeId: 'item' }],
     values: () => ({ from: 0, to: 0 }),
-    run: editStationItems,
+    run: (blueprint, values) => editStationItems(blueprint, values.from, values.to),
   },
   {
     id: 'filter',
@@ -141,7 +156,7 @@ export const BATCH_RULE_TYPES: BatchRuleType[] = [
       },
     ],
     values: () => ({ from: 0, to: 0, target: '分拣器' }),
-    run: editFilter,
+    run: (blueprint, values) => editFilter(blueprint, values.from, values.to, values.target),
   },
   {
     id: 'rectType',
@@ -169,9 +184,48 @@ export const BATCH_RULE_TYPES: BatchRuleType[] = [
     hint: '全部电磁轨道弹射器',
     options: [],
     values: () => ({}),
-    run: editAutoOrbit,
+    run: (blueprint) => editAutoOrbit(blueprint),
   },
 ]
+
+import { experimentalFeatures } from '../stores/tool.js'
+if (experimentalFeatures) {
+  const a: BatchRuleType[] = [
+    {
+      id: 'horizontalOffset',
+      label: '水平偏移',
+      options: [
+        {
+          kind: 'number',
+          field: 'offsetX',
+          label: '横向',
+        },
+        {
+          kind: 'number',
+          field: 'offsetY',
+          label: '纵向',
+        }
+      ],
+      values: () => ({offsetX:0.5, offsetY:0.5}),
+      run: (blueprint, values) => horizontalOffset(blueprint, values.offsetX, values.offsetY),
+    },
+    {
+      id: 'verticalOffset',
+      label: '垂直偏移',
+      hint: '只会作用于可悬空的蓝图',
+      options: [
+        {
+          kind: 'number',
+          field: 'offsetZ',
+          label: '偏移',
+        }
+      ],
+      values: () => ({offsetZ:0}),
+      run: (blueprint, values) => verticalOffset(blueprint, values.offsetZ),
+    }
+  ]
+  BATCH_RULE_TYPES.push(...a)
+}
 
 /** 按 id 取规则类型 */
 export function ruleTypeOf(type: string): BatchRuleType | undefined {
@@ -194,9 +248,6 @@ export function hasReplace(rule: BatchRule): boolean {
 }
 
 /* ── 图标选择器类型表 ────────────────────────────────────── */
-
-/** 配方图标 id = 20000 + 配方 id */
-const RECIPE_ICON_BASE = 20000
 
 /** 物品替换（物流塔物品 / 物品过滤）: 物品 + 建筑两类 */
 const ITEM_CATEGORIES: IconCategories = (() => {
@@ -260,12 +311,12 @@ export const PICKER_TYPES: PickerType[] = [
     categories: (values, field) => (
       field === 'from'
         ? recipeCategoriesAll()
-        : recipeCategoriesOfType(recipeType(Number(values.from) || 0))
+        : recipeCategoriesOfType(recipeData(Number(values.from) || 0)?.type ?? 0)
     ),
     valueOf: (icon) => Number(icon?.recipeId) || 0,
-    iconId: (value) => RECIPE_ICON_BASE + value,
-    nameOf: (value) => recipeName(value) || `未知配方_${value}`,
-    toValid: (from, to) => recipeType(to) === recipeType(Number(from) || 0),
+    iconId: (value) => recipeData(value)?.icon ?? 0,
+    nameOf: (value) => recipeData(value)?.name || `未知配方_${value}`,
+    toValid: (from, to) => (recipeData(to)?.type ?? 0) === (recipeData(Number(from) || 0)?.type ?? 0),
   },
   {
     id: 'upgrade',

@@ -45,3 +45,5 @@ watch(activeTool, (v) => {
     /* 同上 */
   }
 })
+
+export const experimentalFeatures = new URLSearchParams(window.location.search).get('mode') === 'exp'

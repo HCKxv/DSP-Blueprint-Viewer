@@ -4,7 +4,7 @@
  */
 import { computed } from 'vue'
 import { itemName } from '../../../blueprint/factory/factoryItems.js'
-import { itemIconUrl } from '../../../factory/ui/itemIcons'
+import { itemIconUrl } from '../../../factory/icon/itemIcons'
 
 const props = defineProps<{
   /** 建筑 id: 2101 小型储物仓 / 2102 大型储物仓 / 3009 战场分析基站 */

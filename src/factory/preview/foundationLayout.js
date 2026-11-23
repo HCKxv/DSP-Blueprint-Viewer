@@ -1,18 +1,18 @@
 /**
  * foundationLayout.js — 把蓝图自带的铺地（reformData.rects）摊到行星地基网格上
  *
- * 只按色号上色: 装饰花纹不画，无装饰地基（type 7）不显示。
+ * 只按色号上色，装饰花纹不画；带装饰（1-6）与无装饰（7，画斜条纹）分成两套色号数组。
  * rect 是区本地格坐标（x = 距区域西边界第几格，y = 距区域南边界第几行），落点由 blueprintLayout 给出；
  * 行/列取整按游戏粘贴公式，180° 镜像时行取 H-1-y、列取 W-2-x。
  * 产出直接喂给 planetGridMesh.buildPlanetPaintGeometry。
  */
 
-import { FOUNDATION_PALETTE } from '../data/colorPalette.js';
+import { FOUNDATION_PALETTE } from '../../data/colorPalette.js';
 
 /** 未铺地基的色号（与 planetGridMesh.js 的 NO_COLOR 一致） */
 export const FOUNDATION_NO_COLOR = 255;
 
-/** 装饰类型: 0 = 没有地基，1-6 = 带装饰，7 = 无装饰（预览不显示） */
+/** 装饰类型: 0 = 没有地基，1-6 = 带装饰，7 = 无装饰（画斜条纹） */
 const TYPE_NONE = 0;
 const TYPE_UNDECAL = 7;
 
@@ -75,11 +75,13 @@ function colorSlotOf(color) {
 }
 
 /**
- * 铺地数据 → 行星网格上色
+ * 铺地数据 → 行星网格上色（带装饰 / 无装饰各一套；一格只归一套，重叠时后写的算）
+ *
  * @param {object} layout blueprintLayout 的结果（areas + placement + reformData）
  * @param {object} grid createPlanetGrid() 的结果
- * @returns {{palette:Array,index:Uint8Array,paintedCount:number,skippedCount:number,colorsUsed:number[]}|null}
- *   没有可画的地基（无数据 / 全是无装饰地基 / 没有落点）时返回 null
+ * @returns {{palette:Array, index:Uint8Array, plainIndex:Uint8Array, paintedCount:number,
+ *   plainCount:number, skippedCount:number, colorsUsed:number[], plainColorsUsed:number[]}|null}
+ *   index = 带装饰的每格色号、plainIndex = 无装饰的每格色号（255 = 不铺）；两张都空时返回 null
  */
 export function buildFoundationPaint(layout, grid) {
   const reform = layout?.reformData ?? null;
@@ -90,11 +92,14 @@ export function buildFoundationPaint(layout, grid) {
 
   const palette = foundationPalette(reform);
   const index = new Uint8Array(grid.total).fill(FOUNDATION_NO_COLOR);
+  const plainIndex = new Uint8Array(grid.total).fill(FOUNDATION_NO_COLOR);
   const rotated = !!layout.placement?.rotated;
   const latHalf = grid.latHalf;
   const rowCount = grid.latitudeCount;
   const used = new Set();
+  const plainUsed = new Set();
   let paintedCount = 0;
+  let plainCount = 0;
   let skippedCount = 0;
 
   for (const rect of rects) {
@@ -103,8 +108,10 @@ export function buildFoundationPaint(layout, grid) {
     if (width <= 0 || height <= 0) continue;
 
     const type = Math.trunc(Number(rect?.type) || 0);
-    if (type === TYPE_NONE) continue;      // 没铺
-    if (type === TYPE_UNDECAL) continue;   // 无装饰地基不显示
+    if (type === TYPE_NONE) continue;                   // 没铺
+    const plain = type === TYPE_UNDECAL;                // 无装饰: 单独一套（画斜条纹）
+    const target = plain ? plainIndex : index;
+    const other = plain ? index : plainIndex;
 
     const area = areas[Math.trunc(Number(rect?.areaIndex) || 0)];
     if (!area) {
@@ -153,19 +160,28 @@ export function buildFoundationPaint(layout, grid) {
           skippedCount += 1;
           continue;
         }
-        index[info.base + x] = slot;
-        paintedCount += 1;
-        used.add(slot);
+        target[info.base + x] = slot;
+        other[info.base + x] = FOUNDATION_NO_COLOR;     // 同一格只归一类
+        if (plain) {
+          plainCount += 1;
+          plainUsed.add(slot);
+        } else {
+          paintedCount += 1;
+          used.add(slot);
+        }
       }
     }
   }
 
-  if (paintedCount === 0) return null;
+  if (paintedCount === 0 && plainCount === 0) return null;
   return {
     palette,
     index,
+    plainIndex,
     paintedCount,
+    plainCount,
     skippedCount,
     colorsUsed: [...used].sort((a, b) => a - b),
+    plainColorsUsed: [...plainUsed].sort((a, b) => a - b),
   };
 }

@@ -8,8 +8,8 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import IconPickerModal from './IconPickerModal.vue'
 import { applyBatchEdit, batchRules } from '../../stores/factory'
 import { BATCH_RULE_TYPES, createRule, hasReplace, hintOf, labelOf, pickerIconUrl, pickerName, pickerTypeOf, ruleTypeOf } from '../../factory/batchRules'
-import type { BatchRule, BatchRuleSelect } from '../../factory/batchRules'
-import type { IconCategories, IconRef } from '../../factory/ui/itemIcons'
+import type { BatchRule, BatchRuleNumber, BatchRuleSelect } from '../../factory/batchRules'
+import type { IconCategories, IconRef } from '../../factory/icon/iconCatalog'
 import { show } from '../../stores/toast'
 
 /** 「添加规则」的下拉框 */
@@ -38,6 +38,21 @@ function selectIndex(rule: BatchRule, select: BatchRuleSelect): number {
 function onSelectChange(rule: BatchRule, select: BatchRuleSelect, e: Event) {
   const item = select.items[(e.target as HTMLSelectElement).selectedIndex]
   if (item) rule.values[select.field] = item.value
+}
+
+/** 输入框里显示的数字: 取 values 里的值，坏值按 0 兜底 */
+function numberValue(rule: BatchRule, option: BatchRuleNumber): number {
+  const value = Number(rule.values[option.field])
+  return Number.isFinite(value) ? value : 0
+}
+
+/** 改数字: 空着 / 非法内容按 0，写回 values 并纠正显示 */
+function onNumberChange(rule: BatchRule, option: BatchRuleNumber, e: Event) {
+  const el = e.target as HTMLInputElement
+  const typed = Number(el.value)
+  const value = Number.isFinite(typed) ? typed : 0
+  el.value = String(value)
+  rule.values[option.field] = value
 }
 
 // ── 规则数组 ──────────────────────────────────────────────
@@ -142,7 +157,7 @@ function onConfirm() {
 
 <template>
   <div class="factory-batch">
-    <!-- 规则数组: 按 createRule 编译进来的选项（替换 / 下拉）画 -->
+    <!-- 规则数组: 按 createRule 编译进来的选项（替换 / 下拉 / 数字）画 -->
     <div v-if="batchRules.length" class="factory-batch-list">
       <div v-for="(rule, index) in batchRules" :key="index" class="factory-batch-rule">
         <span class="factory-batch-label">{{ labelOf(rule.type) }}：</span>
@@ -195,7 +210,7 @@ function onConfirm() {
           </template>
 
           <!-- 选项类型: 下拉 -->
-          <template v-else>
+          <template v-else-if="option.kind === 'select'">
             <span v-if="option.label" class="factory-batch-label factory-batch-accel">
               {{ option.label }}
             </span>
@@ -211,10 +226,24 @@ function onConfirm() {
               >{{ item.label }}</option>
             </select>
           </template>
+
+          <!-- 选项类型: 数字输入框 -->
+          <template v-else-if="option.kind === 'number'">
+            <span v-if="option.label" class="factory-batch-label factory-batch-accel">
+              {{ option.label }}
+            </span>
+            <input
+              class="factory-batch-number"
+              type="number"
+              :value="numberValue(rule, option)"
+              @change="onNumberChange(rule, option, $event)"
+            />
+            <span v-if="option.unit" class="factory-batch-unit">{{ option.unit }}</span>
+          </template>
         </template>
 
-        <!-- 一个选项都没有: 显示规则表里的补充说明 -->
-        <span v-if="!rule.options.length" class="factory-batch-hint">{{ hintOf(rule.type) }}</span>
+        <!-- 显示规则表里的补充说明 -->
+        <span v-if="hintOf(rule.type)" class="factory-batch-hint">{{ hintOf(rule.type) }}</span>
 
         <button
           class="factory-batch-remove"
@@ -293,7 +322,7 @@ function onConfirm() {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   min-height: 38px;
   padding: 6px 8px;
   border: 1px solid var(--line);
@@ -372,6 +401,39 @@ function onConfirm() {
 
 .factory-batch-select:hover {
   border-color: var(--accent);
+}
+
+/* 数字输入框: 和下拉同高，定宽 + 右对齐，数字读起来齐 */
+.factory-batch-number {
+  width: 60px;
+  height: 24px;
+  min-width: 0;
+  padding: 0 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--bg-component);
+  color: var(--fg-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.factory-batch-number:hover,
+.factory-batch-number:focus {
+  border-color: var(--accent);
+}
+
+.factory-batch-number::-webkit-outer-spin-button,
+.factory-batch-number::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* 数字输入框后面的单位 */
+.factory-batch-unit {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--fg-secondary);
 }
 
 .factory-batch-arrow {

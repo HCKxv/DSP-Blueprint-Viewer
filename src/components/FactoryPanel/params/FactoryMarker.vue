@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /** 全息信标（2401）的参数显示 */
 import { computed } from 'vue'
-import { itemIconUrl } from '../../../factory/ui/itemIcons'
-import { colorPaletteColor } from '../../../factory/data/colorPalette.js'
+import { itemIconUrl } from '../../../factory/icon/itemIcons'
+import { colorPaletteColor } from '../../../data/colorPalette.js'
 import RichText from '../RichText.vue'
 import TodoTextView from './TodoTextView.vue'
 

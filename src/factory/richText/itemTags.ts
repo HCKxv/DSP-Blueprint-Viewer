@@ -1,4 +1,4 @@
-import ICON_TAGS from './iconTags.ts'
+import { ITEM_DATA } from '../../data/items.js'
 
 /** 标记表: 标记名 ↔ 图标 id ↔ 完整标记 */
 
@@ -12,21 +12,19 @@ export interface TagInfo {
   name: string
 }
 
-const TAGS = ICON_TAGS as Record<string, [number, string]>
-
-/** 名字 → 信息 */
+/** 标记名 → 信息 */
 const BY_NAME = new Map<string, TagInfo>()
-/** id → 信息（同一 id 有多个标记时后者覆盖前者，与导出脚本一致） */
+/** id → 信息 */
 const BY_ID = new Map<number, TagInfo>()
 
-for (const [tag, [id, name]] of Object.entries(TAGS)) {
+for (const { id, name, tag } of ITEM_DATA) {
   const info: TagInfo = { tag, id, name }
   BY_NAME.set(tag, info)
   BY_ID.set(id, info)
 }
 
 /** 标记名长度上限（文法按最长匹配从这么长往下试） */
-export const TAG_MAX_LEN = Object.keys(TAGS).reduce((max, tag) => Math.max(max, tag.length), 0)
+export const TAG_MAX_LEN = ITEM_DATA.reduce((max, item) => Math.max(max, item.tag.length), 0)
 
 /** 标记名 → 信息；不在表里给 null */
 export function tagInfoOfName(tag: string): TagInfo | null {

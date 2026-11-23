@@ -6,9 +6,9 @@
  * factory/preview/cameraRig.js，坐标与单位换算在 factory/preview/planetFrames.js；
  * 本文件只管场景与蓝图、事件分发、拾取与图层开关。
  *
- * 操作: 左键拖动 / **W/A/S/D** 让观察点在球面上走、
+ * 操作: 左键拖动 / **W/A/S/D** 让观察点在球面上走、**Q/E** 绕当地竖轴转视角、**R/F** 俯仰、**C** 对准蓝图、
  *       左键**点**建筑选中并高亮（再点同一栋或点空处取消）、
- *       中键拖动转视角、滚轮缩放；右键不接管。
+ *       中键拖动转视角、滚轮 / Z/X 缩放；右键不接管。
  *       触屏: 单指长按到点即选中建筑、单指拖动挪观察点 + 双指捏合缩放 + 双指扭动转视角 + 双指上下挪仰角（判定与回调在 cameraRig，这里拿落点去拾取）。
  *
  * 用法: init(canvas) / setBlueprint(data, resetView)（null = 清空）/ setGridVisible(visible) /
@@ -16,7 +16,7 @@
  *       setSelectionListener(fn) / selectBuilding(index) / buildingCoord(index) / buildingEndCoord(index) /
  *       resetView() / resize() / dispose()
  *
- * 图层: 地基（铺地，只上色，默认显示，界面无开关）/ 建筑 / 带子 / 爪子 / 图标
+ * 图层: 地基（铺地: 带装饰上色、无装饰斜条纹，默认显示，界面无开关）/ 建筑 / 带子 / 爪子 / 图标
  */
 
 import * as THREE from 'three';
@@ -32,6 +32,7 @@ import {
 } from './planetFrames.js';
 import { CameraRig, CAMERA_FOV_DEG } from './cameraRig.js';
 import { isAssembler, isBelt, isInserter, isLab } from '../../blueprint/factory/factoryItems.js';
+import { recipeData } from '../../data/factoryRecipes.js';
 import { layoutBlueprint } from './blueprintLayout.js';
 import { buildFoundationPaint } from './foundationLayout.js';
 import { createStarfield, disposeStarfield, STARFIELD_BG_COLOR } from '../../scene/starfield.js';
@@ -39,9 +40,9 @@ import {
   buildingModel, BUILDING_MODELS,
   BELT_FORWARD_LOCAL, BELT_LINK, BELT_LINK_PRISM, BELT_OCTAGON_PRISM, BELT_SIZE,
   INSERTER_ARROW, INSERTER_MODEL, INSERTER_PARTS,
-} from '../data/buildingModels.js';
-import { itemIconUrl } from '../ui/itemIcons';
-import { COLOR_PALETTE_256 } from '../data/colorPalette.js';
+} from '../../data/buildingModels.js';
+import { itemIconUrl } from '../icon/itemIcons';
+import { COLOR_PALETTE_256 } from '../../data/colorPalette.js';
 import hologramMaskR from '../../assets/factory/hologram/lighthouse-eff-r-R.png';
 import hologramMaskG from '../../assets/factory/hologram/lighthouse-eff-r-G.png';
 import hologramMaskB from '../../assets/factory/hologram/lighthouse-eff-r-B.png';
@@ -60,6 +61,61 @@ const FOUNDATION_RADIUS_SCALE = 1.0001;
 
 /** 铺地几何的矢高上限（buildPlanetPaintGeometry 的 options.maxSag）: 越小越贴地，顶点越多 */
 const FOUNDATION_SUBDIV_SAG = 6e-5;
+
+/** 无装饰地基（type 7）: 深色底 + 45° 斜条纹，间距半格（按球面弧长算，各处等宽） */
+const PLAIN_HATCH_PERIOD = CELL_SCENE * 0.5;
+/** 条纹明暗: 铺地本色 × 系数（颜色仍取色号，只整体压暗） */
+const PLAIN_HATCH_DARK = 0.26;
+const PLAIN_HATCH_LIGHT = 0.68;
+
+/**
+ * 无装饰地基的材质: 本色压暗，叠一层 45° 斜条纹。
+ * 斜纹按球面弧长算（u = 经度 × cos 纬度，u − v 的等值线就是 45°），fwidth 抗锯齿、
+ * 缩远糊成平均色；经度在 ±180° 断开，条纹相位跟着断（与网格接缝同一条线）。
+ */
+function plainFoundationMaterial() {
+  const material = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.92,
+    metalness: 0,
+  });
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.hatchPeriod = { value: PLAIN_HATCH_PERIOD };
+    shader.uniforms.hatchDark = { value: PLAIN_HATCH_DARK };
+    shader.uniforms.hatchLight = { value: PLAIN_HATCH_LIGHT };
+
+    shader.vertexShader = `varying vec3 vFoundationPosition;
+` + shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+	vFoundationPosition = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;`,
+    );
+    shader.fragmentShader = `varying vec3 vFoundationPosition;
+uniform float hatchPeriod;
+uniform float hatchDark;
+uniform float hatchLight;
+
+/** 条纹强弱（0 = 暗底、1 = 亮带） */
+float foundationHatch( vec3 position ) {
+	vec3 normal = normalize( position );
+	float latitude = asin( clamp( normal.y, -1.0, 1.0 ) );
+	float longitude = atan( normal.x, normal.z );
+	// 东向弧长与北向弧长之差: 等值线就是 45° 斜线
+	float coord = ( longitude * cos( latitude ) - latitude ) / hatchPeriod;
+	float wave = 0.5 + 0.5 * cos( coord * 6.2831853 );
+	// 条纹太细（一个像素跨过多个周期）就退回平均色
+	float fade = smoothstep( 0.2, 0.6, fwidth( coord ) );
+	return mix( wave, 0.5, fade );
+}
+
+` + shader.fragmentShader.replace(
+      '#include <color_fragment>',
+      `#include <color_fragment>
+	diffuseColor.rgb *= mix( hatchDark, hatchLight, foundationHatch( vFoundationPosition ) );`,
+    );
+  };
+  return material;
+}
 
 /** 绘制顺序: 粗线在细线之后（交叉处由粗线压住），回归线最后 */
 const GRID_LINE_RENDER_ORDER = 2;
@@ -621,7 +677,7 @@ function positiveOr(value, fallback) {
 }
 
 /**
- * 可独立开关的显示层: 地基（铺地，只上色，默认显示，界面无开关，只留 setLayerVisible 接口）/
+ * 可独立开关的显示层: 地基（铺地，默认显示，界面无开关，只留 setLayerVisible 接口）/
  * 建筑 / 传送带 / 分拣器 / 图标（建筑头顶的图标，物流塔是塔内物品栏卡片）
  */
 const LAYERS = ['foundation', 'buildings', 'belts', 'inserters', 'icons'];
@@ -672,8 +728,8 @@ class FactoryPreview {
     this._highlight = null;
     /** 拾取用的射线（点击用） */
     this._pickRay = null;
-    /** 按住的方向键（W/A/S/D）: 这个文件只管记，走动由 rig 在渲染循环里按帧长算 */
-    this._moveKeys = new Set();
+    /** 按住的控制键（W/A/S/D 挪观察点、Q/E 转视角、R/F 俯仰、Z/X 缩放）: 这个文件只管记，走动由 rig 在渲染循环里按帧长算 */
+    this._heldKeys = new Set();
     this._lastTickTime = 0;
     /** 脏标记: 交互 / 场景变化时置位，静止时跳过渲染（省电；相机那一路由 rig.tick 报） */
     this._needsRender = true;
@@ -707,7 +763,7 @@ class FactoryPreview {
     // 相机与操作: 滚轮缩放、阻尼、中键转视角、左键挪观察点全在 rig 里（见 cameraRig.js 的文件头）
     this._rig = new CameraRig();
     this._rig.attach(canvas, this._camera);
-    this._rig.setMoveKeys(this._moveKeys);
+    this._rig.setHeldKeys(this._heldKeys);
     // 触屏长按到点立刻选中（不等抬手）: rig 只给落点，拾取与高亮在这里
     this._rig.setLongPressListener(({ x, y }) => this._clickSelect(x, y));
 
@@ -726,11 +782,11 @@ class FactoryPreview {
     window.addEventListener('pointerup', this._pointerHandlers.up);
     window.addEventListener('pointercancel', this._pointerHandlers.up);
 
-    // W/A/S/D 挪观察点: 挂 window（画布不聚焦），失焦清键位
+    // W/A/S/D、Q/E、R/F、Z/X、C: 挂 window（画布不聚焦），失焦清键位
     this._keyHandlers = {
       down: (event) => this._onKeyDown(event),
       up: (event) => this._onKeyUp(event),
-      blur: () => this._moveKeys.clear(),
+      blur: () => this._heldKeys.clear(),
     };
     window.addEventListener('keydown', this._keyHandlers.down);
     window.addEventListener('keyup', this._keyHandlers.up);
@@ -1199,7 +1255,7 @@ class FactoryPreview {
       return !!t && !isBelt(t.itemId) && !isInserter(t.itemId);
     };
 
-    /** 组件按角色分桶: frame = 立柱 / 爪臂（固定灰白），body = 横梁 / 长方体（用该分拣器自己的配色） */
+    /** 组件按角色分桶: frame = 立柱 / 爪臂（固定灰白），body = 横梁 / 棒子 / 长方体（用该分拣器自己的配色） */
     const frames = new Map();
     const bodies = new Map();
     const arrows = { matrices: [], owners: [] };
@@ -1240,7 +1296,7 @@ class FactoryPreview {
         dummy.updateMatrix();
         collectPart(part.role, building);
       }
-      // 爪臂挂点: 门架端 = 横梁中心，建筑端 = 长方体朝内面中心（跟着 flip 一起翻）
+      // 爪臂挂点: 门架端 = 横梁朝爪臂伸出的那根棒子，建筑端 = 长方体朝内面中心（跟着 flip 一起翻）
       return pos.clone()
         .addScaledVector(ax, spec.hinge[0])
         .addScaledVector(ay, spec.hinge[1])
@@ -1370,8 +1426,8 @@ class FactoryPreview {
   }
 
   /**
-   * 建筑图标层（图标 id 空间见 factory/ui/iconCatalog.ts，配方图标 id = 20000 + recipeId）:
-   * 制造类 → 配方图标（id = 20000 + recipeId，主产物图标查 RECIPE_DATA）→ 504（无配方）；
+   * 建筑图标层（图标 id 见 factory/icon/iconCatalog.ts，配方图标用 RECIPE_DATA 的 icon）:
+   * 制造类 → 配方图标（专属配方图标 20000 + recipeId，否则主产物图标，见 recipeData 的 icon）→ 504（无配方）；
    * 研究站 researchMode 2 → 704；传送带取 parameters.iconId；
    * 分拣器取 filterId；射线接收站按模式；物流配送器 / 四向分流器用本体图标 + filterId 角标；其余用自身 itemId。
    * 物流塔（见 stationPanelSlots）摆「塔内」卡片，替掉建筑自己的图标。
@@ -1449,7 +1505,7 @@ class FactoryPreview {
         const recipe = b.recipeId ?? 0;
         // 研究站额外看 researchMode 未选择 / 1 矩阵合成 / 2 科研模式
         const researchMode = b.parameters?.researchMode ?? 0;
-        let id = recipe > 0 ? 20000 + recipe : 504;     // 配方图标 id（无配方 → 504）
+        let id = recipe > 0 ? (recipeData(recipe)?.icon || 504) : 504;     // 配方图标 id（无配方 → 504）
         if (isLab(b.itemId) && researchMode === 2) id = 704;        // 科研模式
         else if (isLab(b.itemId) && researchMode === 0) id = 504;   // 未选择
         // 图标是配方 / 科研 / 无配方 —— 建筑本身得自己标出来
@@ -1717,7 +1773,7 @@ class FactoryPreview {
     this._scene.add(group);
   }
 
-  // ─── 地基（蓝图自带的铺地，只上色）────────────────────────────
+  // ─── 地基（蓝图自带的铺地）──────────────────────────────────
   /** 落点签名: 区域行 / 经度 / 宽高 / 分段数 + 是否转了 180°，用来判断几何能不能复用 */
   _foundationPlacementKey(layout) {
     const areas = layout?.areas;
@@ -1730,8 +1786,8 @@ class FactoryPreview {
   }
 
   /**
-   * 摆出地基层: layout.reformData 按格上色（不画花纹，无装饰地基不显示）。
-   * 落点与数据都没变时复用上一份几何（只改建筑不重建）。
+   * 摆出地基层: 带装饰（1-6）按色号上色，无装饰（7）画深色斜条纹；两套色号各建一份几何
+   * （一格只归一类）。落点与数据都没变时复用上一份几何。
    *
    * @param {object} layout layoutBlueprint 的结果（地基数据跟着它一起带出来）
    */
@@ -1757,15 +1813,30 @@ class FactoryPreview {
 
     const paint = buildFoundationPaint(layout, PLANET_GRID);
     if (!paint) return;
+
+    const group = this._layerGroup('foundation');
+    if (paint.paintedCount > 0) {
+      this._addFoundationLayer(group, paint.palette, paint.index, 'factory-foundation', () => (
+        new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 })
+      ));
+    }
+    if (paint.plainCount > 0) {
+      this._addFoundationLayer(
+        group, paint.palette, paint.plainIndex, 'factory-foundation-plain', plainFoundationMaterial,
+      );
+    }
+  }
+
+  /** 把一份「每格色号」摊成几何挂到地基层（带装饰 / 无装饰各来一次；index 里 255 = 不铺） */
+  _addFoundationLayer(group, palette, index, name, createMaterial) {
     const parts = buildPlanetPaintGeometry(
       PLANET_GRID,
-      paint.palette,
-      paint.index,
+      palette,
+      index,
       { maxSag: FOUNDATION_SUBDIV_SAG },     // 细分收紧，铺地才贴得住地面
     );
     if (!parts?.length) return;
 
-    const group = this._layerGroup('foundation');
     // 顶点色用 rgb（planetGridMesh 已转线性空间；a 位是彩绘的涂色状态，这里不用）
     for (const part of parts) {
       const positions = new Float32Array(part.positions.length);
@@ -1784,12 +1855,8 @@ class FactoryPreview {
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
-        vertexColors: true,
-        roughness: 0.92,
-        metalness: 0,
-      }));
-      mesh.name = 'factory-foundation';
+      const mesh = new THREE.Mesh(geometry, createMaterial());
+      mesh.name = name;
       group.add(mesh);
     }
   }
@@ -2476,17 +2543,21 @@ class FactoryPreview {
     if (this._rig?.consumeClick()) this._clickSelect(event.clientX, event.clientY);
   }
 
-  /** 按下 W/A/S/D: 只记键位（键位表与走动都在 rig 里） */
+  /** 按下: C 对准蓝图；W/A/S/D、Q/E、R/F、Z/X 记进按住集合（键位表与走法都在 rig 里） */
   _onKeyDown(event) {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
-    if (!this._rig?.isMoveKey(event.code)) return;
     if (isTypingTarget(event.target)) return;
-    this._moveKeys.add(event.code);
+    if (event.code === 'KeyC') {
+      if (!event.repeat) this.resetView();
+      return;
+    }
+    if (!this._rig?.isHeldKey(event.code)) return;
+    this._heldKeys.add(event.code);
   }
 
-  /** 抬起: 松开那个方向 */
+  /** 抬起: 松开那个键 */
   _onKeyUp(event) {
-    this._moveKeys.delete(event.code);
+    this._heldKeys.delete(event.code);
   }
 
   /** 主光跟着相机走（头灯）: 转到哪一面都看得清 */
@@ -2540,7 +2611,7 @@ class FactoryPreview {
       }
       this._keyHandlers = null;
     }
-    this._moveKeys.clear();
+    this._heldKeys.clear();
     this._lastTickTime = 0;
     this._rig?.dispose();
     this._rig = null;

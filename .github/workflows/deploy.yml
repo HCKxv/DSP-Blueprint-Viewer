@@ -37,6 +37,8 @@ jobs:
         run: npx vue-tsc --noEmit
 
       - name: 构建
+        env:
+          VITE_VISITOR_STATS: "true"
         run: npm run build
 
       - name: 上传构建产物

@@ -2,8 +2,8 @@
 /** 流速监测器（2030）的参数 */
 import { computed } from 'vue'
 import { itemName } from '../../../blueprint/factory/factoryItems.js'
-import { itemIconUrl } from '../../../factory/ui/itemIcons'
-import { colorPaletteColor } from '../../../factory/data/colorPalette.js'
+import { itemIconUrl } from '../../../factory/icon/itemIcons'
+import { colorPaletteColor } from '../../../data/colorPalette.js'
 
 const props = defineProps<{
   /** 这栋建筑的参数对象 */

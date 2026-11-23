@@ -15,7 +15,6 @@ import GenerateBlueprintModal from './SpherePanel/GenerateBlueprintModal.vue'
       <StatsPanel />
     </div>
     <div class="col panel panel-center">
-      <h2>蓝图预览</h2>
       <PreviewPanel />
     </div>
     <div class="col panel panel-right">

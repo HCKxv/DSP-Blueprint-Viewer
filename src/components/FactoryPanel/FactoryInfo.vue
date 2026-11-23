@@ -10,9 +10,9 @@ import {
   discardFoundation,
   LIMITS,
 } from '../../stores/factory'
-import { itemIconUrl } from '../../factory/ui/itemIcons'
-import type { IconRef } from '../../factory/ui/itemIcons'
-import { ICON_CATEGORIES } from '../../factory/ui/iconCatalog'
+import { itemIconUrl } from '../../factory/icon/itemIcons'
+import type { IconRef } from '../../factory/icon/iconCatalog'
+import { ICON_CATEGORIES } from '../../factory/icon/iconCatalog'
 import { show } from '../../stores/toast'
 import decalIcon from '../../assets/factory/decal.png'
 import undecalIcon from '../../assets/factory/undecal.png'

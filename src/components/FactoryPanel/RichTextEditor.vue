@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onBeforeUpdate, onMounted, ref } from 'vue'
-import { createEditHistory } from '../../factory/ui/editHistory'
-import type { EditKind } from '../../factory/ui/editHistory'
+import { createEditHistory } from '../../factory/richText/editHistory'
+import type { EditKind } from '../../factory/richText/editHistory'
 import {
   backspace,
   clampState,
@@ -9,8 +9,8 @@ import {
   insertText as insertTextInto,
   normalizeText,
   selectionText,
-} from '../../factory/ui/richText'
-import type { RichTextState, TextSpan } from '../../factory/ui/richText'
+} from '../../factory/richText/richText'
+import type { RichTextState, TextSpan } from '../../factory/richText/richText'
 import {
   editIntentOf,
   mountRichText,
@@ -21,8 +21,8 @@ import {
   serializeRichText,
   spanOfNode,
   writeSelection,
-} from '../../factory/ui/richTextDom'
-import { itemIconUrl } from '../../factory/ui/itemIcons'
+} from '../../factory/richText/richTextDom'
+import { itemIconUrl } from '../../factory/icon/itemIcons'
 
 /**
  * 可编辑的富文本字段（两层结构）

@@ -1,6 +1,6 @@
-import { recipeData, recipeProductive, buildingSpeed } from './data/factoryRecipes.js';
+import { recipeData, buildingSpeed } from '../data/factoryRecipes.js';
 import { isLab, isAssembler, itemName } from '../blueprint/factory/factoryItems.js';
-import { buildingPower } from './data/buildingPower.js';
+import { buildingPower } from '../data/buildingPower.js';
 import { fmtKJ, fmtKW } from '../utils/energy.js';
 
 const 物流建筑 = [2103, 2104, 2107, 3009];  // 带有最大充能功率(workEnergyPerTick)参数的建筑
@@ -89,7 +89,7 @@ function 统计蓝图(blueprint) {
   }
 
   function 处理配方(building) {
-    const 模式 = recipeProductive(building.recipeId)
+    const 模式 = (recipeData(building.recipeId)?.productive ?? true)
       ? (building.parameters?.acceleratorMode == 1 ? 1 : 0)
       : 1;
     if (building.recipeId > 0) 记录配方(building.recipeId, buildingSpeed(building.itemId), 模式);

@@ -1,14 +1,14 @@
 import { computed, markRaw, reactive, ref, watch } from 'vue'
 import { parseBlueprintString } from '../blueprint/factory/factoryParser.js'
 import { stringifyBlueprint } from '../blueprint/factory/factoryEncoder.js'
-import { isInserter, isStation, itemName } from '../blueprint/factory/factoryItems.js'
-import { compactBuildings, discardBuildings, discardRects, syncBeltIcon } from '../factory/batchEdit.js'
-import { ITEM_MODEL } from '../factory/data/buildingModels.js';
+import { itemName } from '../blueprint/factory/factoryItems.js'
+import * as blueprintEdit from '../factory/blueprintEdit.js'
 import { 新建统计设置, 统计蓝图, 计算包含设施, 计算设施数量, 计算包含地基 } from '../factory/stats.js';
 import type { FactoryPreview } from '../factory/preview/FactoryPreview.js'
 import type { FactoryBlueprint, FactoryHeader } from '../blueprint/factory/factoryTypes'
 import type { BatchRule } from '../factory/batchRules'
 import { saveAsText } from '../utils/download'
+import { cloneData } from '../utils/clonePlain.js';
 
 /** 工厂预览工具的状态 */
 
@@ -154,31 +154,6 @@ function emptyHeader(): FactoryHeader {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// 工具
-// ─────────────────────────────────────────────────────────────
-
-function text(value: unknown): string {
-  return typeof value === 'string' ? value : value === undefined || value === null ? '' : String(value)
-}
-
-/** 头部拷贝（缺的字段补默认值） */
-function copyHeader(head: any): FactoryHeader {
-  return {
-    layout: Number(head?.layout) || 0,
-    icons: Array.isArray(head?.icons) ? [...head.icons] : [0, 0, 0, 0, 0],
-    timeTicks: head?.timeTicks ?? null,
-    time: head?.time ?? null,
-    gameVersion: text(head?.gameVersion),
-    shortDesc: text(head?.shortDesc),
-    author: text(head?.author),
-    customVersion: text(head?.customVersion),
-    properties: (Array.isArray(head?.properties) ? head.properties : [])
-      .map((prop: any) => ({ key: text(prop?.key), value: text(prop?.value) })),
-    desc: text(head?.desc),
-  }
-}
-
 /**
  * 换一份蓝图
  * @param parsed parseBlueprintString 的结果；null = 关闭蓝图
@@ -197,7 +172,7 @@ function setBlueprint(parsed: Record<string, any> | null, raw = '') {
 
   applyBlueprint(structuredClone(parsed) as FactoryBlueprint)
   // 用于界面显示与编辑
-  Object.assign(factory.header, copyHeader(factory.blueprint!.header))
+  Object.assign(factory.header, cloneData(factory.blueprint!.header))
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -344,7 +319,6 @@ export function closeBlueprint() {
 // 编辑建筑 / 还原
 // ─────────────────────────────────────────────────────────────
 
-/** 能改的建筑字段 */
 export interface BuildingChanges {
   /** 建筑 id */
   itemId?: number
@@ -358,119 +332,32 @@ export interface BuildingChanges {
   parameters?: Record<string, any>
   /** 建筑备注 */
   content?: string | null
-  // 分拣器反转用的连接 / 两端位姿（其余建筑用不到）
-  outputObjIdx?: number
-  inputObjIdx?: number
-  outputToSlot?: number
-  inputFromSlot?: number
-  outputFromSlot?: number
-  inputToSlot?: number
-  outputOffset?: number
-  inputOffset?: number
+  /** 局部坐标（格）: [第一端点, 第二端点] */
   localOffset?: Array<{ x: number, y: number, z: number }>
-  yaw?: number[]
-  tilt?: number
-  pitch?: number
-  tilt2?: number
-  pitch2?: number
 }
 
-/** 连在一起的研究站（连同它自己） */
-export function linkedLabBuildings(index: number): any[] {
-  const buildings = factory.blueprint?.buildings
-  if (!Array.isArray(buildings)) return []
-
-  const isLab = (id: unknown) => Number(id) === 2901 || Number(id) === 2902
-  /** 序号就是下标，取回来核一下序号，对不上（越界也是 undefined）当没这栋 */
-  const at = (target: unknown) => {
-    const building = buildings[Number(target)]
-    return building && Number(building.index) === Number(target) ? building : null
-  }
-
-  const start = at(index)
-  if (!start || !isLab(start.itemId)) return []
-
-  // 谁连到我（前驱）: 扫一遍建筑，把指向研究站的连接反过来记
-  const previous = new Map<number, number[]>()
-  for (const b of buildings) {
-    const from = Number(b?.index)
-    if (!Number.isInteger(from)) continue
-    for (const target of [Number(b?.outputObjIdx), Number(b?.inputObjIdx)]) {
-      const to = at(target)
-      if (!to || !isLab(to.itemId)) continue
-      const list = previous.get(target)
-      if (list) list.push(from)
-      else previous.set(target, [from])
-    }
-  }
-
-  const group = [start]
-  const seen = new Set([index])
-  for (let i = 0; i < group.length; i += 1) {
-    const b = group[i]
-    const self = Number(b.index)
-    const neighbours = [
-      Number(b.outputObjIdx), Number(b.inputObjIdx),   // 我连出去的
-      ...(previous.get(self) ?? []),                   // 连到我的
-    ]
-    for (const next of neighbours) {
-      const other = at(next)
-      if (!other || seen.has(next) || !isLab(other.itemId)) continue
-      seen.add(next)
-      group.push(other)
-    }
-  }
-  return group
+/** 研究站所在的那一叠有几栋；不是研究站 = 0 */
+export function labStackCount(index: number): number {
+  return blueprintEdit.labGroup(factory.blueprint, index).size
 }
 
-/**
- * 改一栋建筑
- * @returns 找到了并改上了 true；蓝图没打开 / 编号对不上 / 过滤后没字段 false
- */
-export function editBuilding(index: number, changes: BuildingChanges): boolean {
-  const blueprint = factory.blueprint
-  const buildings = blueprint?.buildings
-  if (!blueprint || !Array.isArray(buildings) || !changes) return false
-
-  // 序号就是下标，对不上（坏数据）直接退出，不至于改到别人的落点上。
-  const building = buildings[index]
-  if (!building || Number(building.index) !== index) return false
-
-  // 空字段（null / undefined）= 这项不改
-  const edits: Record<string, any> = {}
-  for (const key in changes) {
-    if (changes[key] != null) edits[key] = changes[key]
-  }
-  if (Object.keys(edits).length === 0) return false
-
-  buildings[index] = { ...building, ...edits }
-  if (isStation(building.itemId)) syncBeltIcon(blueprint)
-  
+/** 改完蓝图: 统计跟着重算、预览重摆、记上「已修改」 */
+function commitEdit(blueprint: FactoryBlueprint) {
   applyBlueprint(blueprint, false)
   factory.modified = true
-  return true
 }
 
 /**
- * 改「一整栋研究站」: 连同蓝图里与它相连的那些一起改
+ * 改一栋建筑（研究站 = 连着的整叠一起改）
+ * @returns 找到了并改上了 true；蓝图没打开 / 编号对不上 false
  */
-export function editLabGroup(index: number, changes: BuildingChanges): boolean {
-  const group = linkedLabBuildings(index)
-  // 不是研究站（或没连别的）就当普通单栋改
-  if (group.length <= 1) return editBuilding(index, changes)
-
-  const before = group.map((b) => ({ index: Number(b.index), snapshot: { ...b } }))
-  const done: number[] = []
-  for (const b of group) {
-    if (editBuilding(Number(b.index), changes)) done.push(Number(b.index))
-  }
-  if (done.length === group.length) return true
-
-  // 有没改上的: 把改过的还原，不留半改状态
-  for (const { index: i, snapshot } of before) {
-    if (done.includes(i)) editBuilding(i, snapshot)
-  }
-  return false
+export function updateBuilding(index: number, changes: BuildingChanges): boolean {
+  const blueprint = factory.blueprint
+  const building = blueprint?.buildings?.[index]
+  if (!blueprint || !building || Number(building.index) !== index) return false
+  blueprintEdit.editBuilding(blueprint, index, changes)
+  commitEdit(blueprint)
+  return true
 }
 
 /**
@@ -479,79 +366,23 @@ export function editLabGroup(index: number, changes: BuildingChanges): boolean {
  * @param index 建筑编号
  * @param dropSlot 降回行星内时丢弃第几个物品栏位（1-5）；不给就丢最后一个
  */
-export function editStationType(index: number, dropSlot: number | null = null): boolean {
-  const building = factory.blueprint?.buildings[index]
-  if (!building || Number(building.index) !== index) return false
-
-  const slot = Number.isInteger(dropSlot) ? Number(dropSlot) : 5
-
-  const parameters = { ...(building.parameters ?? {}) }
-
-  let itemId: number
-  if (building.itemId === 2103) {
-    // 行星内 → 星际: 补一个空栏位
-    if (parameters.storage.length <= 4) {
-      parameters.storage.push({ itemId: 0, localRole: 0, remoteRole: 0, max: 0, lockAmount: 0 })
-    }
-    itemId = 2104
-  } else if (building.itemId === 2104) {
-    // 星际 → 行星内: 丢一个栏位，再把指着它的传送带槽位改掉
-    parameters.storage.splice(slot - 1, 1)
-    parameters.slots.forEach(belt => {
-      const storageIdx = Number(belt?.storageIdx)
-      if (storageIdx < 1 || storageIdx > 5) return   // 0 = 不输出、6 = 翘曲器
-      if (storageIdx === slot) belt.storageIdx = 0
-      else if (storageIdx > slot) belt.storageIdx = storageIdx - 1
-    })
-    itemId = 2103
-  } else {
-    return false
-  }
-
-  return editBuilding(index, { itemId, modelIndex: ITEM_MODEL[itemId]?.[0], parameters })
+export function convertStationType(index: number, dropSlot: number | null = null): boolean {
+  const blueprint = factory.blueprint
+  const building = blueprint?.buildings?.[index]
+  if (!blueprint || !building || Number(building.index) !== index) return false
+  blueprintEdit.editStationType(blueprint, index, dropSlot)
+  commitEdit(blueprint)
+  return true
 }
 
-/**
- * 反转分拣器: 交换抓取端和放下端
- * 
- *   - 连接与插槽成对交换
- *   - yaw: 两组各 +180°（分拣器两端的朝向都沿爪臂方向）
- *   - pitch / tilt: 对调后取反
- */
-export function reverseInserter(index: number): boolean {
-  const building = factory.blueprint?.buildings?.[index]
-  if (!building || Number(building.index) !== index || !isInserter(building.itemId)) return false
-
-  const offsets = Array.isArray(building.localOffset) ? building.localOffset : []
-  const grab = offsets[0]
-  const drop = offsets[1]
-  if (!grab || !drop) return false
-
-  /** 数字字段兜底 */
-  const int = (value: unknown, fallback = 0) => (Number.isFinite(Number(value)) ? Number(value) : fallback)
-  /** 角度归到 [0, 360) */
-  const turn = (deg: number) => ((deg % 360) + 360) % 360
-
-  const yaws = Array.isArray(building.yaw) ? building.yaw : []
-  const grabYaw = int(yaws[0])
-  const dropYaw = int(yaws[1], grabYaw)
-
-  return editBuilding(index, {
-    // 连接: 输入 ↔ 输出
-    inputObjIdx: int(building.outputObjIdx, -1),
-    outputObjIdx: int(building.inputObjIdx, -1),
-    inputFromSlot: int(building.outputToSlot),
-    outputToSlot: int(building.inputFromSlot),
-    inputOffset: int(building.outputOffset),
-    outputOffset: int(building.inputOffset),
-    // 两端位姿: 第二组 ↔ 第一组
-    localOffset: [drop, grab],
-    yaw: [turn(dropYaw + 180), turn(grabYaw + 180)],
-    pitch: turn(-int(building.pitch2)),
-    pitch2: turn(-int(building.pitch)),
-    tilt: turn(-int(building.tilt2)),
-    tilt2: turn(-int(building.tilt)),
-  })
+/** 反转分拣器: 交换抓取端和放下端 */
+export function flipInserter(index: number): boolean {
+  const blueprint = factory.blueprint
+  const building = blueprint?.buildings?.[index]
+  if (!blueprint || !building || Number(building.index) !== index) return false
+  blueprintEdit.reverseInserter(blueprint, index)
+  commitEdit(blueprint)
+  return true
 }
 
 /**
@@ -559,29 +390,26 @@ export function reverseInserter(index: number): boolean {
  *
  * 同 itemId 的建筑全部打上 -1 墓碑（统计 / 预览都不再算它，导出时由 compactBuildings 压实）；
  * 1131（地基）不占 buildings，连铺好的地基一起清掉。
- *
- * @returns 剔除的数量: 地基按格数算；蓝图没打开 / 这类设施已经没有了 = 0
  */
-export function discardFacility(itemId: number): { ok: boolean, count: number, message: string } {
+export function discardFacility(itemId: number): { ok: boolean, message: string } {
   const blueprint = factory.blueprint
   if (!blueprint || !Array.isArray(blueprint.buildings)) {
-    return { ok: false, count: 0, message: '当前没有已打开的蓝图' }
+    return { ok: false, message: '当前没有已打开的蓝图' }
   }
 
   const id = Number(itemId) || 0
   // 用界面上显示的数量
   const count = facilities.value.find((item) => item.id === id)?.数量 ?? 0
-  if (count <= 0) return { ok: false, count: 0, message: '蓝图里没有这项设施' }
+  if (count <= 0) return { ok: false, message: '蓝图里没有这项设施' }
 
-  discardBuildings(blueprint, id)
+  blueprintEdit.discardBuildings(blueprint, id)
 
   // 正好删掉的是选中那栋 → 先松开选中，免得预览再去选一座墓碑
   const selected = factory.selectedIndex
-  if (selected !== null && Number(blueprint.buildings[selected]?.index) < 0) factory.selectedIndex = null
+  if (selected !== null && Number(blueprint.buildings[selected]?.itemId) === id) factory.selectedIndex = null
 
-  applyBlueprint(blueprint, false)
-  factory.modified = true
-  return { ok: true, count, message: `已剔除 ${count} 个${itemName(id)}` }
+  commitEdit(blueprint)
+  return { ok: true, message: `已剔除${itemName(id)}` }
 }
 
 /** 地基的两类（与 stats.js 的 计算包含地基 一致） */
@@ -590,29 +418,24 @@ export type FoundationKind = 'decal' | 'undecal'
 /**
  * 剔除一类地基（信息栏里右键地基图标）
  *
- * 带装饰 = type 1-6，无装饰 = type 7；一块不剩时整个地基段一起清掉。
- *
  * @param kind 带装饰 / 无装饰
- * @returns 剔除的数量: 按格数算；蓝图没打开 / 这类地基已经没有了 = 0
  */
-export function discardFoundation(kind: FoundationKind): { ok: boolean, count: number, message: string } {
+export function discardFoundation(kind: FoundationKind): { ok: boolean, message: string } {
   const blueprint = factory.blueprint
   if (!blueprint || !Array.isArray(blueprint.reformData?.rects)) {
-    return { ok: false, count: 0, message: '当前蓝图没有地基' }
+    return { ok: false, message: '当前蓝图没有地基' }
   }
 
   const undecal = kind === 'undecal'
   const label = undecal ? '无装饰' : '带装饰'
   // 用界面上显示的数量
   const count = undecal ? foundation.value.无装饰 : foundation.value.带装饰
-  if (count <= 0) return { ok: false, count: 0, message: `蓝图里没有${label}地基` }
+  if (count <= 0) return { ok: false, message: `蓝图里没有${label}地基` }
 
-  const removed = discardRects(blueprint, undecal ? 7 : [1, 2, 3, 4, 5, 6])
-  if (removed <= 0) return { ok: false, count: 0, message: `蓝图里没有${label}地基` }
+  blueprintEdit.discardRects(blueprint, kind)
 
-  applyBlueprint(blueprint, false)
-  factory.modified = true
-  return { ok: true, count: removed, message: `已剔除 ${removed} 个${label}地基` }
+  commitEdit(blueprint)
+  return { ok: true, message: `已剔除${label}地基` }
 }
 
 /**
@@ -633,8 +456,7 @@ export function deleteBuilding(index: number): boolean {
   buildings[index] = { ...building, index: -1 }
   factory.selectedIndex = null
 
-  applyBlueprint(blueprint, false)
-  factory.modified = true
+  commitEdit(blueprint)
   return true
 }
 
@@ -657,9 +479,7 @@ export function applyBatchEdit(): {
     rule.run(blueprint)
   }
 
-  // 预览按新数据重摆
-  applyBlueprint(blueprint, false)
-  factory.modified = true
+  commitEdit(blueprint)                       // 预览按新数据重摆
   batchRules.value = []                       // 提交完就清空规则数组
   return { ok: true, message: '' }
 }
@@ -694,10 +514,9 @@ async function serialize(): Promise<{ text: string, error: string }> {
   const blueprint = factory.blueprint
   if (!blueprint) return { text: '', error: '当前没有已打开的蓝图' }
   try {
-    // 建筑用纯数据那份，头部用界面那份；不写回 blueprint，「复制」才不会把「已修改」清掉。
     // 导出前把删除留下的 -1 墓碑压实，游戏只认 index 与数组下标一致的蓝图。
-    const exportBlueprint = { ...blueprint, header: copyHeader(factory.header) }
-    compactBuildings(exportBlueprint)
+    const exportBlueprint = cloneData({ ...blueprint, header: factory.header })
+    blueprintEdit.compactBuildings(exportBlueprint)
     return { text: await stringifyBlueprint(exportBlueprint), error: '' }
   } catch (error) {
     return { text: '', error: (error as Error).message }
@@ -745,7 +564,7 @@ export async function saveBlueprintFile(): Promise<{ ok: boolean, message: strin
 function markSaved(handle: FileSystemFileHandle | null, text: string) {
   const blueprint = factory.blueprint
   // 只换了头部，建筑没动 → 不归位视角
-  if (blueprint) applyBlueprint({ ...blueprint, header: copyHeader(factory.header) }, false)
+  if (blueprint) applyBlueprint({ ...blueprint, header: cloneData(factory.header) }, false)
   factory.raw = text
   factory.modified = false
   setFileHandle(handle)
