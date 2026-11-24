@@ -307,6 +307,7 @@ export const ITEM_DATA = [
   { id: 41506, name: '狄拉克逆变机制', tag: 'dlknb' },
   { id: 41507, name: '宇宙矩阵', tag: 'tbait' },
   { id: 41508, name: '任务完成', tag: 'rwwc' },
+  { id: 41509, name: '黑雾引力透镜', tag: 'thyltj' },
   { id: 41511, name: '能量储存', tag: 'nlcc' },
   { id: 41512, name: '星际电力运输', tag: 'xjdlys' },
   { id: 41513, name: '地热开采', tag: 'drkc' },
