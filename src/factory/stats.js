@@ -245,14 +245,20 @@ function 透镜倍率(使用透镜) {
 }
 
 function 计算生产详情(统计, 设置) {
-  const 生产数据 = {};
+  const 生产数据 = new Map();
+  const 获取记录 = (id) => {
+    let 记录 = 生产数据.get(id);
+    if (!记录) {
+      记录 = { 产出: 0, 消耗: 0 };
+      生产数据.set(id, 记录);
+    }
+    return 记录;
+  };
   const 添加产出 = (id, n) => {
-    if (!生产数据[id]) 生产数据[id] = {产出:n, 消耗:0};
-    else 生产数据[id].产出 += n;
+    获取记录(id).产出 += n;
   };
   const 添加消耗 = (id, n) => {
-    if (!生产数据[id]) 生产数据[id] = {产出:0, 消耗:n};
-    else 生产数据[id].消耗 += n;
+    获取记录(id).消耗 += n;
   };
 
   const 增产剂 = 当前增产剂(设置.使用增产剂);
@@ -336,15 +342,14 @@ function 计算生产详情(统计, 设置) {
     添加消耗(2207, 生产);
   }
 
-  return Object.entries(生产数据)
-    .filter(([id]) => id > 0)
+  return [...生产数据]
     .map(([id, {产出, 消耗}]) => ({
-      id: Number(id),
+      id,
       名字: itemName(id),
       净产: 产出 - 消耗,
       产出,
       消耗,
-      物流: 统计.物流详情.get(Number(id))
+      物流: 统计.物流详情.get(id)
     }));
 }
 

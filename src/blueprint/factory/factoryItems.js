@@ -10,7 +10,7 @@ for (const i of ITEM_DATA) {
 
 // 根据物品 id 返回中文名称
 function itemName(itemId) {
-  return ITEM_NAMES.get(itemId) ?? `未知物品_${itemId}`;
+  return ITEM_NAMES.get(+itemId) ?? `未知物品_${itemId}`;
 }
 
 // ─────────────────────────────────────────────────────────────
