@@ -1,5 +1,5 @@
 import { ticksTime, getCurrentTicks } from '../utils.js';
-import { BinaryWriter, uint8ArrayToBase64, gzipCompress } from '../codec.js';
+import { BinaryWriter, encodeBase64Gzip } from '../codec.js';
 import { computeSignature } from '../checksum.js';
 import { isBeltRange, isSorterRange } from './factoryItems.js';
 import { getParamCodec } from './factoryParams.js';
@@ -204,8 +204,7 @@ async function stringifyBlueprint(blueprint) {
 
   const headerStr = buildHeader(blueprint);
   const bodyData = writeBlueprintBody(blueprint);
-  const compressed = await gzipCompress(bodyData);
-  const base64Body = uint8ArrayToBase64(compressed);
+  const base64Body = await encodeBase64Gzip(bodyData);
 
   // 签名：对结尾引号之前的全部内容取摘要
   let text = `${BLUEPRINT_PREFIX}${headerStr}"${base64Body}`;

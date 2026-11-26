@@ -48,6 +48,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('/node_modules/')) {
+            if (id.includes('/fflate/')) return 'fflate'
             if (id.includes('/three/')) return 'three'
             if (id.includes('/vue/') || id.includes('/@vue/')) return 'vue'
           }

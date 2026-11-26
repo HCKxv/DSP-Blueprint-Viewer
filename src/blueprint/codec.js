@@ -1,48 +1,23 @@
-// 将 Base64 字符串解码为 Uint8Array
-function base64ToUint8Array(base64String) {
-  const binary = atob(base64String);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-// 将 Uint8Array 编码为 Base64 字符串
-function uint8ArrayToBase64(bytes) {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
+import { gunzipSync, gzipSync } from 'fflate';
 
 // 将 Base64 字符串解码并解压（gzip）
 async function decodeBase64Gzip(base64String) {
-  const compressed = base64ToUint8Array(base64String);
-
-  if (typeof DecompressionStream === 'function') {
-    const ds = new DecompressionStream('gzip');
-    const decompressedStream = new Response(compressed).body.pipeThrough(ds);
-    const arrayBuffer = await new Response(decompressedStream).arrayBuffer();
-    return new Uint8Array(arrayBuffer);
+  const binary = atob(base64String);
+  const compressed = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    compressed[i] = binary.charCodeAt(i);
   }
-
-  throw new Error('浏览器不支持 gzip 解压，请使用 Edge 或 Chrome 浏览器。');
+  return gunzipSync(compressed);
 }
 
-// 使用 gzip 压缩数据
-async function gzipCompress(data) {
-  if (typeof CompressionStream === 'function') {
-    const cs = new CompressionStream('gzip');
-    const writer = cs.writable.getWriter();
-    writer.write(data);
-    writer.close();
-    const arrayBuffer = await new Response(cs.readable).arrayBuffer();
-    return new Uint8Array(arrayBuffer);
+// 使用 gzip 压缩数据并编码为 Base64
+async function encodeBase64Gzip(data) {
+  const compressed = gzipSync(data);
+  let binary = '';
+  for (let i = 0; i < compressed.length; i += 1) {
+    binary += String.fromCharCode(compressed[i]);
   }
-
-  throw new Error('浏览器不支持 gzip 压缩，请使用 Edge 或 Chrome 浏览器。');
+  return btoa(binary);
 }
 
 // 二进制读取器，用于从 Uint8Array 中按小端序读取各种基础类型
@@ -204,4 +179,4 @@ class BinaryWriter {
   }
 }
 
-export { base64ToUint8Array, uint8ArrayToBase64, decodeBase64Gzip, gzipCompress, BinaryReader, BinaryWriter };
+export { decodeBase64Gzip, encodeBase64Gzip, BinaryReader, BinaryWriter };

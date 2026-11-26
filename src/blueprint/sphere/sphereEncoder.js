@@ -1,6 +1,6 @@
 import { getCurrentTicks } from '../utils.js';
 import { calcLatLimit, compactAndRebuildIds, getBodyTypeId } from './sphereUtils.js';
-import { BinaryWriter, uint8ArrayToBase64, gzipCompress } from '../codec.js';
+import { BinaryWriter, encodeBase64Gzip } from '../codec.js';
 import { computeSignature } from '../checksum.js';
 
 // 写入三维坐标
@@ -262,8 +262,7 @@ async function stringifyBlueprint(blueprint) {
 
   const headerStr = buildHeader(blueprint);
   const bodyData = writeBlueprintBody(blueprint);
-  const compressed = await gzipCompress(bodyData);
-  const base64Body = uint8ArrayToBase64(compressed);
+  const base64Body = await encodeBase64Gzip(bodyData);
 
   // 签名
   let text = `${BLUEPRINT_PREFIX}${headerStr}"${base64Body}`;
