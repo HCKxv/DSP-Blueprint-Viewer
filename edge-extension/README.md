@@ -16,22 +16,13 @@
 
 ## 自建部署 / 改查看器地址
 
-默认打开 <https://hckxv.github.io/DSP-Blueprint-Viewer/>。自建时改两处：
+默认打开 <https://hckxv.github.io/DSP-Blueprint-Viewer/>。自建时修改：
 
-1. `background.js` 顶部的 `VIEWER_URL`
-2. `manifest.json` 的 `host_permissions`，改成查看器所在域名，例如：
-
-```json
-"host_permissions": ["http://localhost:5173/*"]
-```
-
-改完在 `edge://extensions/` 里点扩展的「重新加载」。
+`background.js` 顶部的 `VIEWER_URL`，并确保目标页面支持 `dsp-blueprint:request-ready` 握手协议。
 
 ## 权限说明
 
 | 权限 | 用途 |
 | --- | --- |
 | `contextMenus` | 添加「查看蓝图」右键菜单 |
-| `scripting` | 在查看器标签页里执行一段脚本，用 `window.postMessage` 投递蓝图 |
-| `host_permissions`（查看器域名） | 允许向查看器标签页注入脚本 |
 | `content_scripts`（所有 http/https 页面） | 右键时读取目标元素 / 选中文本，判断是不是蓝图 |

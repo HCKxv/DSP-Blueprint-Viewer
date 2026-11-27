@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import { itemIconUrl } from '../../../factory/icon/itemIcons'
 import { colorPaletteColor } from '../../../data/colorPalette.js'
 import RichText from '../RichText.vue'
-import TodoTextView from './TodoTextView.vue'
+import TodoTextView from '../TodoTextView.vue'
 
 const props = defineProps<{
   /** 这栋建筑的参数对象 */

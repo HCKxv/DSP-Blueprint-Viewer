@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /** 只读待办文本：\tag; 图标、[-]/[+] 复选框、逐字符文本颜色 */
 import { computed } from 'vue'
-import { parseRichText } from '../../../factory/richText/richText'
-import { itemIconUrl } from '../../../factory/icon/itemIcons'
-import { colorPaletteTextColor } from '../../../data/colorPalette.js'
+import { parseRichText } from '../../factory/richText/richText.js'
+import { itemIconUrl } from '../../factory/icon/itemIcons.js'
+import { colorPaletteTextColor } from '../../data/colorPalette.js'
 
 const props = withDefaults(defineProps<{
   /** 已反转义的待办原文 */

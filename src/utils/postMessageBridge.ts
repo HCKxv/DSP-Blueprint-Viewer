@@ -6,6 +6,9 @@
  *   2. 收到 { type: 'dsp-blueprint:ready' } 后发送
  *      { type: 'dsp-blueprint:load', text: 'DYBP:...' }（可以连续发送）；
  *   3. 收到 { type: 'dsp-blueprint:result', ok, message, kind } 得知处理结果。
+ *
+ * 如宿主错过 ready，可发送 { type: 'dsp-blueprint:request-ready' } 请求重新握手，
+ * 本页会再次向该来源发送 { type: 'dsp-blueprint:ready' }。
  */
 
 /** 本页 → 宿主：页面已就绪，可以投递蓝图 */
@@ -14,6 +17,8 @@ export const READY_MESSAGE_TYPE = 'dsp-blueprint:ready'
 export const LOAD_MESSAGE_TYPE = 'dsp-blueprint:load'
 /** 本页 → 宿主：投递处理结果 */
 export const RESULT_MESSAGE_TYPE = 'dsp-blueprint:result'
+/** 宿主 → 本页：请求重新握手（重新发送 ready） */
+export const REQUEST_READY_MESSAGE_TYPE = 'dsp-blueprint:request-ready'
 
 export interface BridgeResult {
   ok: boolean
@@ -48,6 +53,19 @@ export function startBlueprintMessageBridge(options: StartBridgeOptions): () => 
   let tail: Promise<unknown> = Promise.resolve()
 
   function onMessage(event: MessageEvent) {
+    const data = event.data as Record<string, unknown> | null
+    if (data?.type === REQUEST_READY_MESSAGE_TYPE) {
+      const source = event.source as Window | null
+      // 不透明来源（沙箱 iframe、file:// 页面）没法当 targetOrigin，只能写 *
+      const targetOrigin = event.origin && event.origin !== 'null' ? event.origin : '*'
+      try {
+        source?.postMessage({ type: READY_MESSAGE_TYPE }, targetOrigin)
+      } catch {
+        /* 对方窗口已关闭时忽略 */
+      }
+      return
+    }
+
     const message = readLoadMessage(event.data)
     if (!message) return
 

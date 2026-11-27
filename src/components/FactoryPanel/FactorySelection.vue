@@ -522,7 +522,6 @@ watch(() => selectedBuilding.value?.index, () => {
         <div class="factory-selection-row factory-selection-param">
           <span
             class="factory-selection-label"
-            title="增量会加到蓝图里这栋建筑的 localOffset 上，点「保存修改」才写回"
           >调整坐标</span>
           <span class="factory-coord-offset-unit">偏移量</span>
           <button

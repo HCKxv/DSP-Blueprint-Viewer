@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "戴森球蓝图右键查看",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "右键网页里的蓝图文本，用蓝图工具打开。",
   "icons": {
     "16": "icons/icon16.png",
@@ -9,8 +9,7 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["contextMenus", "scripting"],
-  "host_permissions": ["https://hckxv.github.io/*"],
+  "permissions": ["contextMenus"],
   "background": {
     "service_worker": "background.js"
   },

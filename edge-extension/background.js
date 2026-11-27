@@ -4,6 +4,8 @@ const MENU_ID = 'dyson-open-blueprint'
 const VIEWER_URL = 'https://hckxv.github.io/DSP-Blueprint-Viewer/'
 const CONTEXT_MESSAGE = 'blueprint:context'
 const GET_TARGET_MESSAGE = 'blueprint:get-target'
+const VIEWER_REQUEST_READY_MESSAGE = 'blueprint:viewer-request-ready'
+const VIEWER_SEND_LOAD_MESSAGE = 'blueprint:viewer-send-load'
 
 /** 重建菜单项（默认隐藏，内容脚本命中蓝图后再显示） */
 function ensureMenu() {
@@ -63,40 +65,31 @@ async function openFromTab(tabId, frameId) {
   await openInViewer(text)
 }
 
-/** 打开查看器标签页，等加载完成后用 postMessage 投递蓝图 */
+/** 打开查看器标签页，通过 postMessage 握手并投递蓝图 */
 async function openInViewer(text) {
   const viewerTab = await chrome.tabs.create({ url: VIEWER_URL })
   if (viewerTab.id === undefined) return
   await waitForTabComplete(viewerTab.id)
 
-  const results = await chrome.scripting.executeScript({
-    target: { tabId: viewerTab.id },
-    world: 'MAIN',
-    func: (blueprintText) => {
-      return new Promise((resolve) => {
-        const timer = setTimeout(() => {
-          window.removeEventListener('message', onMessage)
-          resolve({ ok: false, message: '等待蓝图工具响应超时' })
-        }, 10000)
+  const origin = new URL(VIEWER_URL).origin
+  const ready = await chrome.tabs.sendMessage(viewerTab.id, {
+    type: VIEWER_REQUEST_READY_MESSAGE,
+    origin,
+  }, { frameId: 0 })
+  if (!ready || ready.ok === false) {
+    console.warn('[蓝图] 打开失败：' + (ready && ready.message ? ready.message : '查看器没有完成握手'))
+    return
+  }
 
-        function onMessage(event) {
-          if (event.source !== window) return
-          const data = event.data
-          if (!data || data.type !== 'dsp-blueprint:result') return
-          clearTimeout(timer)
-          window.removeEventListener('message', onMessage)
-          resolve({ ok: Boolean(data.ok), message: String(data.message || '') })
-        }
+  const result = await chrome.tabs.sendMessage(viewerTab.id, {
+    type: VIEWER_SEND_LOAD_MESSAGE,
+    origin,
+    text,
+  }, { frameId: 0 })
 
-        window.addEventListener('message', onMessage)
-        window.postMessage({ type: 'dsp-blueprint:load', text: blueprintText }, window.location.origin)
-      })
-    },
-    args: [text],
-  })
-
-  const result = results && results[0] ? results[0].result : null
-  if (result && result.ok === false) console.warn('[蓝图] 打开失败：' + result.message)
+  if (!result || result.ok === false) {
+    console.warn('[蓝图] 打开失败：' + (result && result.message ? result.message : '查看器没有返回结果'))
+  }
 }
 
 /** 等待标签页 load 完成；超时抛错 */
