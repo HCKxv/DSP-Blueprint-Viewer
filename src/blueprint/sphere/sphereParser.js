@@ -1,6 +1,10 @@
 import { ticksTime, compareVersion } from '../utils.js';
 import { blueprintTypeName } from './sphereUtils.js';
-import { BinaryReader, decodeBase64Gzip } from '../codec.js';
+import {
+  BinaryReader,
+  decodeBase64Gzip,
+  SPHERE_BLUEPRINT_PREFIX as BLUEPRINT_PREFIX,
+} from '../codec.js';
 import { verifyBlueprintString } from '../checksum.js';
 
 // 解析蓝图头部
@@ -22,9 +26,6 @@ function parseHeader(headerString) {
     latLimit,
   };
 }
-
-const BLUEPRINT_PREFIX = 'DYBP:';
-const ADAPTED_VERSION = '0.10.34.28524';
 
 /**
  * 解析完整蓝图字符串
@@ -51,7 +52,7 @@ async function parseBlueprintString(blueprintString) {
     throw new Error(`蓝图格式错误: 必须以 ${BLUEPRINT_PREFIX} 开头`);
   }
 
-  const rawBody = blueprintString.slice(5);  // 去掉前缀 DYBP:
+  const rawBody = blueprintString.slice(BLUEPRINT_PREFIX.length);  // 去掉前缀 DYBP:
   const segments = rawBody.split('"');
   if (segments.length < 3) {
     throw new Error('蓝图格式错误: 未找到中段或签名');
@@ -66,15 +67,14 @@ async function parseBlueprintString(blueprintString) {
   // typeId / latLimit 从头部解析
   const { typeId, latLimit, ...header } = parseHeader(headerString);
 
-  // 版本 <= 0.9.24.11286 使用旧版格式
+  // 旧版蓝图主体解析（版本 <= 0.9.24.11286）
+  // 与新版的主要区别：无初始 int32 占位符、轨道无版本前缀、无太阳帆颜色数据
   const isOldFormat = compareVersion(header.version, '0.9.24.11286') <= 0;
   let body;
   try {
     const decoded = await decodeBase64Gzip(bodyString);
     const reader = new BinaryReader(decoded);
-    body = isOldFormat
-      ? oldBlueprintBody(reader, typeId)
-      : parseBlueprintBody(reader, typeId);
+    body = parseBlueprintBody(reader, typeId, isOldFormat);
   } catch (err) {
     const errMessage = err instanceof Error ? err.message : String(err);
     throw new Error(
@@ -97,39 +97,17 @@ async function parseBlueprintString(blueprintString) {
 }
 
 // 解析蓝图主体
-function parseBlueprintBody(reader, typeId) {
-  reader.readInt32();  //version?
+function parseBlueprintBody(reader, typeId, isOldFormat=false) {
+  if (!isOldFormat) reader.readInt32();  //version?
 
   const body = {};
 
   if (typeId === 3 || typeId === 4) {
-    body.dysonCloud = parseDysonCloud(reader);
+    body.dysonCloud = parseDysonCloud(reader, isOldFormat);
   }
 
   if (typeId === 2 || typeId === 4) {
-    body.dysonShell = parseDysonShell(reader);
-  }
-
-  if (typeId === 1) {
-    body.singleShell = parseSingleShell(reader);
-  }
-
-  return body;
-}
-
-// 旧版蓝图主体解析（版本 <= 0.9.24.11286）
-// 与新版的主要区别：无初始 int32 占位符、轨道无版本前缀、无太阳帆颜色数据
-function oldBlueprintBody(reader, typeId) {
-  // 旧版格式没有初始 int32(0) 占位符
-
-  const body = {};
-
-  if (typeId === 3 || typeId === 4) {
-    body.dysonCloud = oldDysonCloud(reader);
-  }
-
-  if (typeId === 2 || typeId === 4) {
-    body.dysonShell = oldDysonShell(reader);
+    body.dysonShell = parseDysonShell(reader, isOldFormat);
   }
 
   if (typeId === 1) {
@@ -140,12 +118,18 @@ function oldBlueprintBody(reader, typeId) {
 }
 
 // 解析戴森云
-function parseDysonCloud(reader) {
+function parseDysonCloud(reader, isOldFormat=false) {
   const visibility = parseVisibility(reader);
   const orbits = [];
   for (let i = 0; i < 20; i += 1) {
-    orbits.push(parseOrbit(reader));
+    orbits.push(parseOrbit(reader, isOldFormat));
   }
+
+  if (isOldFormat) return {
+    visibility,
+    orbits,
+    colors: [],
+  };
 
   const colorCount = reader.readInt32();
   const colors = [];
@@ -160,57 +144,14 @@ function parseDysonCloud(reader) {
   };
 }
 
-// 旧版戴森云解析
-function oldDysonCloud(reader) {
-  const visibility = parseVisibility(reader);
-  const orbits = [];
-  for (let i = 0; i < 20; i += 1) {
-    orbits.push(oldOrbit(reader));
-  }
-
-  // 旧版没有太阳帆颜色数据
-
-  return {
-    visibility,
-    orbits,
-    colors: [],
-  };
-}
-
 // 解析戴森壳部分
-function parseDysonShell(reader) {
+function parseDysonShell(reader, isOldFormat=false) {
   const visibility = parseVisibility(reader);
   const orbitCount = reader.readInt32();
   const orbitList = new Array(orbitCount).fill(null);
   for (let i = 0; i < orbitCount; i += 1) {
     if (reader.readBool()) {
-      orbitList[i] = parseOrbit(reader);
-    }
-  }
-
-  const shellCount = reader.readInt32();
-  const shells = new Array(shellCount).fill(null);
-  for (let i = 0; i < shellCount; i += 1) {
-    if (reader.readBool()) {
-      shells[i] = parseSingleShell(reader);
-    }
-  }
-
-  return {
-    visibility,
-    orbitList,
-    shells,
-  };
-}
-
-// 旧版戴森壳解析
-function oldDysonShell(reader) {
-  const visibility = parseVisibility(reader);
-  const orbitCount = reader.readInt32();
-  const orbitList = new Array(orbitCount).fill(null);
-  for (let i = 0; i < orbitCount; i += 1) {
-    if (reader.readBool()) {
-      orbitList[i] = oldOrbit(reader);
+      orbitList[i] = parseOrbit(reader, isOldFormat);
     }
   }
 
@@ -238,7 +179,6 @@ function parseSingleShell(reader) {
   const fillGrid = version >= 1 ? parseFillGrid(reader) : null;
 
   return {
-    //version,
     nodes,
     frames,
     faces,
@@ -395,33 +335,8 @@ function parseVisibility(reader) {
 }
 
 // 解析轨道数据项
-function parseOrbit(reader) {
-  const version = reader.readInt32();
-  const id = reader.readInt32();
-  const radius = reader.readFloat32();
-  const x = reader.readFloat32();
-  const y = reader.readFloat32();
-  const z = reader.readFloat32();
-  const w = reader.readFloat32();
-  const hasOrbit = reader.readBool();
-
-  if (!hasOrbit) {
-    return null;
-  }
-
-  return {
-    //version,
-    id,
-    radius,
-    x,
-    y,
-    z,
-    w,
-  };
-}
-
-// 旧版轨道解析
-function oldOrbit(reader) {
+function parseOrbit(reader, isOldFormat=false) {
+  const version = isOldFormat ? null : reader.readInt32();
   const id = reader.readInt32();
   const radius = reader.readFloat32();
   const x = reader.readFloat32();

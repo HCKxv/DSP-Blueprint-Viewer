@@ -1,12 +1,13 @@
 import { ticksTime } from '../utils.js';
-import { BinaryReader, decodeBase64Gzip } from '../codec.js';
-import { computeSignature, getSignatureParts } from '../checksum.js';
+import {
+  BinaryReader,
+  decodeBase64Gzip,
+  FACTORY_BLUEPRINT_PREFIX as BLUEPRINT_PREFIX,
+} from '../codec.js';
+import { verifyBlueprintString } from '../checksum.js';
 import { itemName, isBeltRange, isSorterRange } from './factoryItems.js';
 import { getParamCodec } from './factoryParams.js';
 import { parseExternalFields } from './externalFields.js';
-
-// 工厂蓝图字符串固定前缀
-const BLUEPRINT_PREFIX = 'BLUEPRINT:';
 
 // 保留 4 位小数，避免浮点误差扩散
 function fix(num) {
@@ -408,20 +409,18 @@ async function parseBlueprintString(blueprintString) {
     throw new Error(`蓝图格式错误: 必须以 ${BLUEPRINT_PREFIX} 开头`);
   }
 
-  const parts = getSignatureParts(blueprintString, BLUEPRINT_PREFIX);
-  if (!parts) {
-    throw new Error('蓝图格式错误: 未找到主体或签名');
+  const rawBody = blueprintString.slice(BLUEPRINT_PREFIX.length);  // 去掉前缀 DYBP:
+  const segments = rawBody.split('"');
+  if (segments.length < 3) {
+    throw new Error('蓝图格式错误: 未找到中段或签名');
   }
 
-  const validFlag = parts.signature.toUpperCase() === computeSignature(parts.content);
+  const headerString = segments[0];
+  const bodyString = segments[1];
+  const signature = segments[2];
+  const validFlag = verifyBlueprintString(blueprintString, BLUEPRINT_PREFIX);
 
-  // 头部：前缀后到首个双引号
-  const firstQuote = blueprintString.indexOf('"', BLUEPRINT_PREFIX.length);
-  const headerString = blueprintString.slice(BLUEPRINT_PREFIX.length, firstQuote);
   const header = parseHeader(headerString);
-
-  // 主体：首个双引号与末尾双引号之间
-  const bodyString = blueprintString.slice(firstQuote + 1, blueprintString.length - 33);
 
   let body;
   try {
@@ -446,7 +445,7 @@ async function parseBlueprintString(blueprintString) {
   };
 }
 
-export { parseBlueprintString, BLUEPRINT_PREFIX };
+export { parseBlueprintString };
 
 // Example usage:
 // import { parseBlueprintString } from './factoryParser.js';

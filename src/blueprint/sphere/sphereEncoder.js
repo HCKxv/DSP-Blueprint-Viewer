@@ -1,6 +1,10 @@
-import { getCurrentTicks } from '../utils.js';
+import { getCurrentTicks, compareVersion } from '../utils.js';
 import { calcLatLimit, compactAndRebuildIds, getBodyTypeId } from './sphereUtils.js';
-import { BinaryWriter, encodeBase64Gzip } from '../codec.js';
+import {
+  BinaryWriter,
+  encodeBase64Gzip,
+  SPHERE_BLUEPRINT_PREFIX as BLUEPRINT_PREFIX,
+} from '../codec.js';
 import { computeSignature } from '../checksum.js';
 
 // 写入三维坐标
@@ -232,13 +236,14 @@ function writeBlueprintBody(blueprint) {
   return writer.toUint8Array();
 }
 
-const BLUEPRINT_PREFIX = 'DYBP:';
 const BLUEPRINT_VERSION = '0.10.34.28524';
 
 // 构建头部字符串
 function buildHeader(blueprint) {
   const ticks = getCurrentTicks() || '630822816000000000';
-  const version = BLUEPRINT_VERSION;
+  const version = compareVersion(blueprint.header?.version || '', BLUEPRINT_VERSION) > 0
+    ? blueprint.header.version
+    : BLUEPRINT_VERSION;
   const typeId = blueprint.typeId;
   const latLimit = calcLatLimit(blueprint);
   return `0,${ticks},${version},${typeId},${latLimit}`;

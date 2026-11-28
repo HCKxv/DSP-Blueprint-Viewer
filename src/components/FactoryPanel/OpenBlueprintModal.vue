@@ -8,6 +8,7 @@ import {
   loadBlueprintText,
 } from '../../stores/factory'
 import { show } from '../../stores/toast'
+import { FACTORY_BLUEPRINT_PREFIX } from '../../blueprint/codec.js'
 
 const text = ref('')
 const error = ref('')
@@ -170,7 +171,7 @@ function onClose() {
       <textarea
         v-model="text"
         class="factory-import-text"
-        placeholder="BLUEPRINT:..."
+        :placeholder="`${FACTORY_BLUEPRINT_PREFIX}...`"
         spellcheck="false"
       ></textarea>
 

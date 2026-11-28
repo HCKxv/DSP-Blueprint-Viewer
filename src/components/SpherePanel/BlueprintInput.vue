@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { store, parseBlueprint, resetBlueprint, handleBlueprintText } from '../../stores/preview'
 import { show } from '../../stores/toast'
+import { SPHERE_BLUEPRINT_PREFIX } from '../../blueprint/codec.js'
 
 const dragging = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -103,7 +104,7 @@ function onDrop(e: DragEvent) {
             class="btn-sm"
             :disabled="!canReset || store.parsing"
             @click="resetBlueprint()"
-          >清空结果</button>
+          >清空预览</button>
         </div>
         <div class="btn-group io-actions">
           <button class="btn-sm" @click="pickFile">文件</button>
@@ -129,7 +130,7 @@ function onDrop(e: DragEvent) {
       <textarea
         v-model="store.input"
         :class="{ 'drag-over': dragging }"
-        placeholder="粘贴以 DYBP: 开头的蓝图字符串&#10;或拖动蓝图文件到此处"
+        :placeholder="`粘贴以 ${SPHERE_BLUEPRINT_PREFIX} 开头的蓝图字符串\n或拖动蓝图文件到此处`"
       ></textarea>
       <div class="drop-hint" :class="{ show: dragging }">📂 释放文件以加载蓝图</div>
     </div>

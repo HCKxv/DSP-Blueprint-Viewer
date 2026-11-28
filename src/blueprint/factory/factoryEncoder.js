@@ -1,12 +1,13 @@
-import { ticksTime, getCurrentTicks } from '../utils.js';
-import { BinaryWriter, encodeBase64Gzip } from '../codec.js';
+import { ticksTime, getCurrentTicks, compareVersion } from '../utils.js';
+import {
+  BinaryWriter,
+  encodeBase64Gzip,
+  FACTORY_BLUEPRINT_PREFIX as BLUEPRINT_PREFIX,
+} from '../codec.js';
 import { computeSignature } from '../checksum.js';
 import { isBeltRange, isSorterRange } from './factoryItems.js';
 import { getParamCodec } from './factoryParams.js';
 import { buildExternalFields } from './externalFields.js';
-
-// 工厂蓝图字符串固定前缀
-const BLUEPRINT_PREFIX = 'BLUEPRINT:';
 
 const DEFAULT_GAME_VERSION = '0.10.34.28524';
 
@@ -139,7 +140,9 @@ function buildHeader(blueprint) {
   const layout = header.layout ?? 0;
   const icons = normalizeIcons(header.icons);
   const ticks = header.timeTicks ?? getCurrentTicks();
-  const gameVersion = header.gameVersion ?? DEFAULT_GAME_VERSION;
+  const gameVersion = compareVersion(header.gameVersion || '', DEFAULT_GAME_VERSION) > 0
+    ? header.gameVersion
+    : DEFAULT_GAME_VERSION;
   const shortDesc = header.shortDesc ?? '';
   const author = header.author ?? '';
   const customVersion = header.customVersion ?? '';

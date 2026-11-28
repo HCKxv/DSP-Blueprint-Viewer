@@ -9,6 +9,7 @@ import {
   clearImportedBase,
 } from '../../stores/painting'
 import { show } from '../../stores/toast'
+import { SPHERE_BLUEPRINT_PREFIX } from '../../blueprint/codec.js'
 
 /** 输入框上方的提示（单行省略显示，完整内容靠 title） */
 const IMPORT_HINT = '注意甄别未知来源的蓝图；建议使用全包裹的壳面，否则会影响最终效果。'
@@ -117,7 +118,7 @@ function onClearImport() {
           <textarea
             v-model="importText"
             class="base-import-input"
-            placeholder="粘贴以 DYBP: 开头的单层壳蓝图"
+            :placeholder="`粘贴以 ${SPHERE_BLUEPRINT_PREFIX} 开头的单层壳蓝图`"
           ></textarea>
           <div class="base-import-actions">
             <button class="btn-sm" type="button" :disabled="importing" @click="applyImport">

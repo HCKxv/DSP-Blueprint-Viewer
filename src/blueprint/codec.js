@@ -1,5 +1,8 @@
 import { gunzipSync, gzipSync } from 'fflate';
 
+const SPHERE_BLUEPRINT_PREFIX = 'DYBP:';
+const FACTORY_BLUEPRINT_PREFIX = 'BLUEPRINT:';
+
 // 将 Base64 字符串解码并解压（gzip）
 async function decodeBase64Gzip(base64String) {
   const binary = atob(base64String);
@@ -179,4 +182,11 @@ class BinaryWriter {
   }
 }
 
-export { decodeBase64Gzip, encodeBase64Gzip, BinaryReader, BinaryWriter };
+export {
+  SPHERE_BLUEPRINT_PREFIX,
+  FACTORY_BLUEPRINT_PREFIX,
+  decodeBase64Gzip,
+  encodeBase64Gzip,
+  BinaryReader,
+  BinaryWriter,
+};

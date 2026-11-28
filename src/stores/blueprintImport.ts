@@ -3,14 +3,18 @@ import { activeTool } from './tool'
 import { loadBlueprintText } from './factory'
 import { parseBlueprint, store } from './preview'
 import { show } from './toast'
+import {
+  FACTORY_BLUEPRINT_PREFIX,
+  SPHERE_BLUEPRINT_PREFIX,
+} from '../blueprint/codec.js'
 
 /** 蓝图种类 */
 export type BlueprintKind = 'sphere' | 'factory'
 
 /** 蓝图的开头标记 */
 const PREFIXES: ReadonlyArray<{ prefix: string, kind: BlueprintKind }> = [
-  { prefix: 'DYBP:', kind: 'sphere' },
-  { prefix: 'BLUEPRINT:', kind: 'factory' },
+  { prefix: SPHERE_BLUEPRINT_PREFIX, kind: 'sphere' },
+  { prefix: FACTORY_BLUEPRINT_PREFIX, kind: 'factory' },
 ]
 
 /** 按开头标记判断蓝图种类；不是蓝图文本时返回 null */

@@ -1,5 +1,6 @@
 import { markRaw, reactive, shallowRef, toRaw, watch } from 'vue'
 import { parseBlueprintString } from '../blueprint/sphere/sphereParser.js'
+import { SPHERE_BLUEPRINT_PREFIX } from '../blueprint/codec.js'
 import { extractSingleShell, extractStructure } from '../sphere/edit.js'
 import { stringifyBlueprint } from '../blueprint/sphere/sphereEncoder.js'
 import { computePower } from '../sphere/power/power.js'
@@ -430,7 +431,7 @@ export function handleBlueprintText(text: string) {
     show('内容为空')
     return
   }
-  if (!trimmed.startsWith('DYBP:')) {
+  if (!trimmed.startsWith(SPHERE_BLUEPRINT_PREFIX)) {
     show('内容不是有效的球体蓝图')
     return
   }
